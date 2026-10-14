@@ -1,0 +1,29 @@
+# secrets (CLAUDE.md §2): only the .example files are committed
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+
+# local raw-page cache written by `hl` (the real store is the raw-pages bucket)
+pipeline/.cache/
+
+# node / next
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# os / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

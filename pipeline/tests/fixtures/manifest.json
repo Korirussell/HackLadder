@@ -1,0 +1,104 @@
+{
+  "gallery/cathacks-xii_p1.html": {
+    "url": "https://cathacks-xii.devpost.com/project-gallery?page=1",
+    "why": "small gallery: one page, no pagination element at all",
+    "fetched_at": "2026-10-14T20:08:00+00:00",
+    "sha256": "dd054c369044825e9b793f926e3a5c0142c96c33fd13997f2426b1e939d7da26"
+  },
+  "gallery/treehacks-2024_p1.html": {
+    "url": "https://treehacks-2024.devpost.com/project-gallery?page=1",
+    "why": "big gallery, first of 14 pages: all winners, has a next page",
+    "fetched_at": "2026-10-14T19:49:19+00:00",
+    "sha256": "f82ff42be9b8ad90e23e5fdaae83fc6dbbd1e598a4d4c9119d322e2a9efa786d"
+  },
+  "gallery/treehacks-2024_p14.html": {
+    "url": "https://treehacks-2024.devpost.com/project-gallery?page=14",
+    "why": "multi-page gallery, last page: non-winners, a deleted member, next link disabled",
+    "fetched_at": "2026-10-14T19:49:39+00:00",
+    "sha256": "4136a2086f7afd4b7fbbebb458c825beb9176e8a3b95f9d15b05c7ba51471ffa"
+  },
+  "list/ended_page1.json": {
+    "url": "https://devpost.com/api/hackathons?status[]=ended&page=1",
+    "why": "list API page: invite-only and not-yet-announced events, all three date formats",
+    "fetched_at": "2026-10-14T20:08:59+00:00",
+    "sha256": "dfb33b0f9043061dbdd43e7a31ffbee5fa850518044340d49a3e19a7fc15cd8f"
+  },
+  "project/baymax-your-personal-healthcare-companion.html": {
+    "url": "https://devpost.com/software/baymax-your-personal-healthcare-companion",
+    "why": "winner: grand prize + sponsor prize, 4 members",
+    "fetched_at": "2026-10-14T19:49:56+00:00",
+    "sha256": "8af1bc27221320410d1ad92844dbf350a7e518f61c84bde3a3673947ed04d9e3"
+  },
+  "project/dockerc.html": {
+    "url": "https://devpost.com/software/dockerc",
+    "why": "solo winner, two prizes, non-ASCII display name",
+    "fetched_at": "2026-10-14T19:50:00+00:00",
+    "sha256": "8458685ed17286434cdd2837ce2e1a6e01ebd74e3b4fc35758d210fb9cc182b5"
+  },
+  "project/lingua-franca-6xovi3.html": {
+    "url": "https://devpost.com/software/lingua-franca-6xovi3",
+    "why": "winner: track 'Education Grand Prize'",
+    "fetched_at": "2026-10-14T19:50:08+00:00",
+    "sha256": "5bc489788b742103a9634021373c60868002cdd7e0feedbf0a7f1986e89cc9de"
+  },
+  "project/locavid.html": {
+    "url": "https://devpost.com/software/locavid",
+    "why": "submitted to 5 events; won elsewhere but not at share.devpost.com",
+    "fetched_at": "2026-10-14T20:07:25+00:00",
+    "sha256": "f4dafcfcbd11b002ee48f29e65c5826dc23bd29b5fa09b8816a543f6a813ad92"
+  },
+  "project/palate-pals.html": {
+    "url": "https://devpost.com/software/palate-pals",
+    "why": "non-winner whose only member is a deleted account",
+    "fetched_at": "2026-10-14T19:57:49+00:00",
+    "sha256": "2d5e048fb37567eb71e74f437252af63d50a5637f292d5053fea2a2b4f1baca4"
+  },
+  "project/sequoia-tgnryh.html": {
+    "url": "https://devpost.com/software/sequoia-tgnryh",
+    "why": "submitted to 12 events; won here (share.devpost.com) and elsewhere",
+    "fetched_at": "2026-10-14T20:07:22+00:00",
+    "sha256": "bf416d1f67a2eacad98b3190f30a37bca943cb59a4978617527f139859b6ab9e"
+  },
+  "project/shamify.html": {
+    "url": "https://devpost.com/software/shamify",
+    "why": "non-winner, 5 members (gallery shows '+ 1')",
+    "fetched_at": "2026-10-14T19:53:16+00:00",
+    "sha256": "67def16b1af26792aff0b8f79f75ac5c0e6b4ae832e772a2ef19d401cfa99daf"
+  },
+  "project/spot-my-good-boy.html": {
+    "url": "https://devpost.com/software/spot-my-good-boy",
+    "why": "non-winner with a private-mode member",
+    "fetched_at": "2026-10-14T19:51:47+00:00",
+    "sha256": "35dffec56e6b347cb4ddd8f9668f49cca598cf32e29da8fa8a739a84b0aebbcf"
+  },
+  "project/test-project-skqc27.html": {
+    "url": "https://devpost.com/software/test-project-skqc27",
+    "why": "solo 'winner' of a workshop raffle",
+    "fetched_at": "2026-10-14T19:51:24+00:00",
+    "sha256": "7d8648a6edba081d5fc16a96541831eed34e2565070b3a9a1386a7de125b8c5e"
+  },
+  "project/vision-mama-llm-vision-pro-agents-fun-learning.html": {
+    "url": "https://devpost.com/software/vision-mama-llm-vision-pro-agents-fun-learning",
+    "why": "winner: sponsor prize with [1st] in reward",
+    "fetched_at": "2026-10-14T19:50:50+00:00",
+    "sha256": "9c77b43524b7d20c2955a0c0e455a214ab09d570a21f6527279b7faa2c3edccd"
+  },
+  "user/NilsIrl.html": {
+    "url": "https://devpost.com/NilsIrl",
+    "why": "non-ASCII display name",
+    "fetched_at": "2026-10-14T20:09:02+00:00",
+    "sha256": "006d0d6a9be298727fb6cc548a433cfab173855d94ae1486d5b6966da9875f73"
+  },
+  "user/aaravwattal.html": {
+    "url": "https://devpost.com/aaravwattal",
+    "why": "bio and location set",
+    "fetched_at": "2026-10-14T20:09:01+00:00",
+    "sha256": "fddd627f35c2d19718c2951e11d8150a4b8bcda570e85385d1bf0b1a6366759f"
+  },
+  "user/dylanjpaulson.html": {
+    "url": "https://devpost.com/dylanjpaulson",
+    "why": "no display name set: Devpost shows the username",
+    "fetched_at": "2026-10-14T20:09:04+00:00",
+    "sha256": "2693e106250cd617df8db5e432c6ebcb6efde55c349b17e0e098d9e1be8326f0"
+  }
+}

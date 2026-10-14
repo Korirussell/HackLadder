@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+from collections.abc import Iterator
 from pathlib import Path
 
 from hackladder.crawl.http import FetchResult, PoliteClient
@@ -43,3 +44,9 @@ class CachedFetcher:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(gzip.compress(result.text.encode("utf-8")))
         return result
+
+
+def iter_cached_pages(root: Path) -> Iterator[str]:
+    """Every page stored under ``root``, ordered by URL hash. Makes no requests."""
+    for path in sorted(root.rglob("*.gz")):
+        yield gzip.decompress(path.read_bytes()).decode("utf-8")

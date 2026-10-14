@@ -72,18 +72,12 @@ class GalleryPage:
 
 
 @dataclass(frozen=True, slots=True)
-class Prize:
-    name: str
-    tier: int
-
-
-@dataclass(frozen=True, slots=True)
 class Submission:
     """One "Submitted to" block on a project page."""
 
     hackathon_url: str
     hackathon_title: str
-    prizes: tuple[Prize, ...]
+    prizes: tuple[str, ...]  # raw prize names; tiers come from hackladder.prizes
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +87,7 @@ class ProjectPage:
     tagline: str | None
     members: tuple[Member, ...]
     submissions: tuple[Submission, ...]
-    prizes_at_this_event: tuple[Prize, ...]
+    prizes_at_this_event: tuple[str, ...]
     built_with: tuple[str, ...]
     description_text: str
 

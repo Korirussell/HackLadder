@@ -1,0 +1,103 @@
+# Prize tiers (CLAUDE.md §6.5). Edit this file to change how prizes rank; no code changes needed.
+#
+#   uv run hl prizes            # every cached prize name with its tier and the rule that decided it
+#   uv run hl prizes --default  # only names no rule matched (they get default_tier); review these
+#   uv run pytest tests/test_prizes.py
+#
+# How a prize gets its tier:
+#   1. An override for this exact event + prize name, if there is one.
+#   2. Otherwise the FIRST rule (top to bottom) whose pattern matches.
+#   3. Otherwise default_tier.
+#
+# Patterns are case-insensitive Python regexes. By default they're matched against the prize
+# name with reward descriptions removed: "Best Use of X ($1k Cash [1st])" -> "Best Use of X".
+# Set match = "full" for a rule that needs the parenthesized/bracketed text ("[MLH]", "Sponsored by").
+#
+# Every example must land in its rule's tier, or the tests fail. Add a real name when you add a rule.
+
+default_tier = 2  # unrecognized prizes are usually topic tracks ("Best Health Hack", "Most Impactful Hack")
+
+[tiers]
+1 = "Grand prize / best overall / 1st overall"
+2 = "Main track winner, or overall runner-up"
+3 = "Sponsor challenge"
+4 = "MLH or 'best use of X' tech prize"
+5 = "Not a placement (ranks with everyone who didn't place)"
+
+# ----------------------------------------------------------------------------- tier 5
+[[rules]]
+name = "not a placement"
+tier = 5
+pattern = '\b(raffle|participation|attendance|honou?rable mention|highlighted project|featured project)\b'
+examples = ["Workshop Raffle Prizes ($10k in Prizes)", "Highlighted Project", "Honorable Mention"]
+
+# ----------------------------------------------------------------------------- tier 4
+[[rules]]
+name = "MLH prize"
+tier = 4
+match = "full"
+pattern = '\bmlh\b|major league hacking'
+examples = ["[MLH] Best Use of ElevenLabs", "MLH: Best Domain Name from GoDaddy Registry", "Best Use of Vultr (MLH)"]
+
+[[rules]]
+name = "best use of a technology"
+tier = 4
+pattern = '\b(best use of|powered by|built with|best hack using)\b'
+examples = [
+  "Best Use of Monster Generative AI APIs (4x XBox Series S [1st] & 1 million Monster API credits [2nd] & $400 Cash [3rd])",
+  "Codegen: Best Use of AI Agents ($3k Cash)",
+  "Best Use of Microsoft Azure",
+]
+
+# ----------------------------------------------------------------------------- tier 1
+[[rules]]
+name = "grand prize / overall winner"
+tier = 1
+pattern = '^(the )?(grand prize|best overall|overall|(1st|first)( place)?|winner)( (overall|winner|hackathon|prize))?$|\b(1st|first)( place)? overall\b|\boverall (winner|grand prize|1st|first)\b'
+examples = ["Grand Prize ($10k Cash)", "First Place", "First place hackathon", "1st Place Overall", "Best Overall", "Overall Winner"]
+
+# ----------------------------------------------------------------------------- tier 2
+[[rules]]
+name = "overall runner-up / finalist"
+tier = 2
+pattern = '\b(2nd|3rd|second|third|runner[- ]?ups?|finalists?|top \d+)\b'
+examples = ["Second Place", "Third Place", "Runner Up", "Top 10"]
+
+[[rules]]
+name = "track grand prize"
+tier = 2
+pattern = '\bgrand prize\b|\btrack\b'
+examples = ["Education Grand Prize (4x Quest 3)", "Blockchain & Security Grand Prize (4x JBL Partybox)", "Health Track Winner"]
+
+# ----------------------------------------------------------------------------- tier 3
+[[rules]]
+name = "sponsor prefix (Sponsor: Prize)"
+tier = 3
+pattern = '^[^:]{2,40}:\s'
+examples = [
+  "Reazon Holdings: Best Senior-Focused Hack (4x Round Trip Tickets to Tokyo)",
+  "Fetch.ai: Smartest AI Agent Prize (Top 2 Teams - $3k Cash)",
+  "Stanford Ecopreneurship: Best Prototyping Process ($1k Cash)",
+]
+
+[[rules]]
+name = "sponsored by"
+tier = 3
+match = "full"
+pattern = '\bsponsored by\b|\bsponsor (prize|challenge|track)\b'
+examples = ["Most Likely to Become a Startup (Sponsored by OpenScout)"]
+
+[[rules]]
+name = "minor award"
+tier = 3
+pattern = "\\b(beginner|presentation|designs?|team ?work|wild ?card|people'?s choice|audience choice)\\b"
+examples = ["Best Beginner Hack (4x Razer Keyboard + Mouse)", "Best Presentation", "Best Designs", "Best Team Work", "Best Wild Card"]
+
+# ----------------------------------------------------------------------------- overrides
+# Promote or demote one prize at one event, e.g. a sponsor challenge that was genuinely hard:
+#
+# [[overrides]]
+# event = "treehacks-2024"                      # the event's Devpost subdomain
+# prize = "Intel: Best Use of Intel Developer Cloud ($10k Credits + 4x Lenovo AI PC [1st] & $4k Credits [2nd] & $2k Credits [3rd])"
+# tier = 3                                      # exact raw name, as `hl prizes` prints it
+# note = "Judged by Intel engineers; 40+ teams entered"

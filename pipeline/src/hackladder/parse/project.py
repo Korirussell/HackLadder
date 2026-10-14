@@ -8,11 +8,10 @@ from hackladder.parse.common import (
     ParseError,
     anonymous_member_kind,
     host_of,
-    prize_tier,
     text_of,
     username_from_url,
 )
-from hackladder.parse.models import Member, Prize, ProjectPage, Submission
+from hackladder.parse.models import Member, ProjectPage, Submission
 
 
 def _member(li: Tag) -> Member:
@@ -31,12 +30,11 @@ def _submission(li: Tag) -> Submission:
     link = li.select_one(".software-list-content a[href]")
     if link is None:
         raise ParseError(f"'Submitted to' entry without an event link: {text_of(li)!r}")
-    prizes: list[Prize] = []
+    prizes: list[str] = []
     for item in li.select(".software-list-content li:has(span.winner)"):
         for badge in item.select("span.winner"):
             badge.decompose()
-        name = text_of(item) or ""
-        prizes.append(Prize(name=name, tier=prize_tier(name)))
+        prizes.append(text_of(item) or "")
     return Submission(
         hackathon_url=str(link["href"]),
         hackathon_title=text_of(link) or "",

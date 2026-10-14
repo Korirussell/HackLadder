@@ -19,8 +19,8 @@ There is no good place today to see who the best hackathon hackers are, which ev
 ### 1.1 Product pillars, in priority order
 
 1. **Find yourself.** Search is the homepage. Every result lands on a profile with a rating, the rating's history, wins weighted by difficulty, and frequent teammates.
-2. **School vs school.** School leaderboards are the main growth lever: rivalries get shared far more than individual ranks.
-3. **Events.** Every hackathon gets a page with field strength, winners and win odds. A "hardest to win" board ranks events and recurring series.
+2. **Events.** Ranking hackathons by how hard they are to win is the headline: every hackathon gets a page with field strength, winners and win odds, and a "hardest to win" board ranks events and recurring series.
+3. **School vs school.** School leaderboards, as rivalries get shared. School comes from claimed profiles (§16), so this board fills in over time.
 4. **Share and claim.** People get a shareable rank card (an OG image) and can claim their profile through a Devpost bio code.
 5. **Trust.** A public methodology page, an easy corrections flow, and "remove me" honored without argument.
 6. **Return loop.** Ratings update weekly, and people who claimed their profile get an email when their rating moves.
@@ -173,6 +173,7 @@ hackladder/
 │       └── tests/
 ├── pipeline/
 │   ├── prototype/             ← validated prototype; read-only reference, see §8
+│   ├── config/                ← owner-edited inputs: prize_tiers.toml, vetted_events.toml
 │   ├── src/hackladder/
 │   │   ├── crawl/             ← fetch, cache, rate limit, checkpoints
 │   │   ├── parse/             ← pure functions: HTML → dataclasses
@@ -236,7 +237,7 @@ The site shows "Updated every Monday".
 ### 6.4 Backfill procedure
 
 1. `hl crawl list --all` fetches the entire hackathon list (about 1,550 pages). Store it.
-2. Filter: `winners_announced = true`, not `invite_only`, registrations ≥ 20, not a high-school event (§9).
+2. Filter: `winners_announced = true`, not `invite_only`, not a high-school event (§9), **and the event is in scope: an MLH member event, or on the hand-vetted list** (`pipeline/config/vetted_events.toml`, with a one-line reason per event). Everything else (open online jams, corporate challenges) is out of scope for ratings. That also keeps re-submitted projects (§6.6) from farming results, and makes the backfill far smaller.
 3. `hl crawl events --backfill --chunk 200` crawls galleries and projects, 200 events per chunk, newest first. Checkpoints go in `crawl_checkpoints`, so killing and restarting it loses nothing.
 4. `hl parse --all` parses from storage, then `hl resolve`, `hl rate`, `hl analyze`, `hl publish`.
 5. Run a spot-check script that prints 20 random events with parsed winners and team members next to their Devpost URLs, for a human to eyeball.
@@ -253,7 +254,19 @@ Parsers are **pure functions** (`html → dataclass`), with no I/O, and each has
 
 Markup the parser wasn't written for raises `ParseError` instead of guessing, so it shows up in `hl check` and `crawl_failures`.
 
-Prize tiers (from the prototype's `prize_tier`): 1 = grand / 1st / overall, 2 = 2nd / 3rd / runner-up / finalist, 3 = track or category (the default), 4 = sponsor / "best use of X" / MLH, **5 = not a placement** (raffle, participation, attendance; the rating treats it like "submitted, didn't place"). Tiers are derived from the name with `(...)` and `[...]` reward descriptions removed (§6.6). Store the raw prize name too, so tiers can be re-derived.
+Prize tiers (the owner's call, 2026-10-14):
+
+| Tier | Meaning | Examples |
+|---|---|---|
+| 1 | Grand prize / best overall / 1st overall | "Grand Prize ($10k Cash)", "1st Place Overall" |
+| 2 | Main track winner, or overall runner-up | "Health Grand Prize", "Best Hardware Hack", "2nd Place" |
+| 3 | Sponsor challenge, judged by a sponsor | "Reazon Holdings: Best Senior-Focused Hack" |
+| 4 | MLH and "best use of X" tech prizes | "[MLH] Best Use of ElevenLabs", "Best Use of Vultr" |
+| 5 | Not a placement | "Workshop Raffle Prizes" |
+
+Many events have no "best overall" at all, only topic tracks, so track winners are the second-biggest result. Some sponsor challenges are genuinely hard; promote those individually with an override rather than loosening the rules.
+
+**Tiers are config, not code.** `pipeline/config/prize_tiers.toml` holds the ordered rules (first match wins, case-insensitive regex on the name with `(...)`/`[...]` reward text removed), the default tier for names no rule matches, and per-event overrides for exact prize names. Every rule lists real example names, and the tests fail if an example doesn't land in its rule's tier. `uv run hl prizes` prints every cached prize name with its tier and the rule that decided it, to review after editing. Parsers return raw prize names only; tiers are derived when loading, so a config change re-tiers everything without re-crawling.
 
 ### 6.6 Devpost field notes (keep this updated)
 
@@ -275,7 +288,7 @@ Verified against the live site on 2026-10-14 (fixtures in `pipeline/tests/fixtur
 - **Prizes.** `#submissions ul.software-list-with-thumbnail > li`; the event link is in `.software-list-content`; each prize is an `li` with `span.winner` followed by the prize name. Host matching must be **exact**: the prototype's `a[href*=host]` substring match would accept `hacks-2024.devpost.com` for `treehacks-2024`.
 - **Prize names carry their rewards**, including placings: `Best Use of Monster Generative AI APIs (4x XBox Series S [1st] & … [2nd] & $400 Cash [3rd])`. The prototype's tier-1 rule matched that `[1st]`: **16 of the 22 prizes it rated tier 1 at TreeHacks 2024 were sponsor prizes.** Tiers are now computed on the name without `(...)`/`[...]`, leaving 6 tier-1 prizes.
 - **Raffles are "prizes" too**: `test-project-skqc27` (a project literally titled "Test Project") won "Workshop Raffle Prizes ($10k in Prizes)". Now tier 5, not a placement.
-- **Open tier questions (need data from more events, not one):** TreeHacks names its track winners "Education Grand Prize", "Health Grand Prize" and so on, which tier as 1 alongside the real "Grand Prize ($10k Cash)"; arguably they're tier 3. Many sponsor prizes are written `Sponsor: Prize name` (e.g. "Fetch.ai: Smartest AI Agent Prize") and fall to the tier-3 default; a colon-prefix rule might be tier 4. Decide both during the backfill spot-check.
+- **Track grand prizes and "Sponsor: Prize" names.** TreeHacks calls its track winners "Education Grand Prize", "Health Grand Prize" and so on; these are tier 2 (main track), not tier 1. Sponsor challenges are usually written `Sponsor: Prize name` (e.g. "Fetch.ai: Smartest AI Agent Prize"); the colon prefix maps them to tier 3. Both are rules in `config/prize_tiers.toml` (§6.5).
 - **Multi-event submissions are rare at in-person events but extreme online.** None of the 329 TreeHacks 2024 projects (and none of 27 sampled elsewhere) were submitted to a second event, yet on Local Hack Day: Share (2020) `sequoia-tgnryh` went to 12 events and `smarttracker-covid19` to 21, including "Teens Take On COVID" (a minors-rule signal, §9). Fetch each project page **once** and parse it per event; don't refetch it for every gallery it appears in.
 - **User pages have no school field** (checked three users; §16). They show name, `(username)`, an optional free-text bio (`#portfolio-user-bio`), and `#portfolio-user-links` (location via `.ss-location`, plus website/GitHub, which we don't parse, §9.3). The bio is also shown under each member's name on project pages.
 - The software search API (`/software/search?query=`) returns JSON with members and a winner flag but **not** which hackathons a project was submitted to.
@@ -360,7 +373,8 @@ The prototype in `pipeline/prototype/` is validated. Port its logic into `src/ha
 ### 8.1 Hacker ratings (`prototype/rate.py`)
 
 - Replay all events in date order through **OpenSkill Plackett-Luce** (team-aware, multiplayer).
-- Each event becomes a ranking: 1 grand, 2 runner-up, 3 track (or winner badge with no prize name), 4 sponsor, 5 everyone who submitted but didn't place (tied).
+- Each event becomes a ranking by prize tier (§6.5): 1 grand / overall, 2 main track or overall runner-up (also a winner badge with no prize name), 3 sponsor challenge, 4 MLH or "best use of X" tech prize, then everyone who submitted but didn't place, tied (this group includes tier 5, "not a placement").
+- Each project's entry at each event counts on its own (§15). A team is rated as its members, including anonymous seats (private/deleted accounts), which count as unrated average players.
 - A person on two projects at one event keeps only their best-placed one (`dedupe_people`).
 - Display score: `1000 + 40 × (μ − 3σ)`, so new hackers start at about 1000 and a single lucky win can't top the board.
 - Leaderboard eligibility: at least 3 rated events (the prototype used 2; **use 3**). Below that, the profile is labeled "Provisional".
@@ -414,7 +428,7 @@ Pick whichever raises hacker correlation the most without breaking the other flo
 4. **"Remove me" is instant and unconditional.** It's available without an account through the bio-code check, and it hides the person everywhere. Their past results still count for opponents' ratings, but they're shown as "Hidden hacker".
 5. **Corrections are easy** and reviewed within a week. Every profile has a "Something wrong?" link.
 6. **Recruiter features** only ever show people who claimed their profile **and** opted in.
-7. Respect Devpost: polite crawling (§6.2), link back to the original Devpost project and profile on every page, and never present Devpost content as our own. **OPEN:** email Devpost about the project before public launch.
+7. Respect Devpost: polite crawling (§6.2), link back to the original Devpost project and profile on every page, and never present Devpost content as our own. Email Devpost about the project **after** launch (owner's call, 2026-10-14).
 
 ---
 
@@ -487,10 +501,11 @@ Work top to bottom. Check items off here as they're done.
 - [ ] Crawler with raw storage in Supabase Storage, `raw_pages_index`, checkpoints, `crawl_failures`
 - [x] Postgres migrations for §7 (plus RLS/privacy tests in `supabase/tests/`)
 - [ ] Loaders; idempotent upserts
-- [ ] MLH high-school detection plus `excluded_hackathons`
+- [ ] Event scope: MLH member events (from mlh.io season pages, matched to Devpost events) plus `config/vetted_events.toml`; MLH high-school detection plus `excluded_hackathons`
+- [x] Configurable prize tiers (`config/prize_tiers.toml`, `hl prizes`)
 - [ ] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test
 - [ ] Fix §8.6 isolated-pool inflation
-- [ ] School normalization (§16 OPEN)
+- [ ] School normalization for owner-entered schools (§16)
 - [ ] Backfill run plus spot-check report
 
 ### Phase 2: Site core
@@ -526,6 +541,7 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run hl check https://treehacks-2024.devpost.com/   # crawl and parse one event verbosely (-q: summary only)
 uv run python scripts/fetch_fixtures.py               # (re)capture parser fixtures politely
+uv run hl prizes [--default] [--event E] [--csv out.csv]  # review prize tiers after editing config/prize_tiers.toml
 uv run hl crawl list --all
 uv run hl crawl events --backfill --chunk 200
 uv run hl parse --all
@@ -569,18 +585,22 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-14: `search()` is a security-definer RPC that re-checks `people.hidden` live, so "remove me" is instant even before `search_index` is refreshed. It matches on exact username, name prefix, or trigram similarity / word similarity (typo-tolerant). Ranking still needs tuning against real names in Phase 2.
 - 2026-10-14: Local raw-page cache (`pipeline/.cache/raw`, gzipped, keyed by sha256 of the URL) mirrors the `raw-pages` bucket layout, so `hl check` and fixture capture re-run with zero requests. The Supabase Storage backend comes with the crawler.
 - 2026-10-14: httpx for the pipeline's HTTP client. It has typed APIs and a mock transport for testing the rate limiter and back-off offline.
+- 2026-10-14: Ratings cover only MLH member events and a hand-vetted list (`config/vetted_events.toml`). The owner cares about competitive, legitimate events; open online jams are noise and invite re-submission farming.
+- 2026-10-14: Prize tiers are owner-defined: grand/overall 1, main track or overall runner-up 2, sponsor challenge 3, MLH/"best use of" 4, not a placement 5. Many events have only topic tracks, so track wins rank right after grand prizes. Rules, the default and per-event overrides live in `config/prize_tiers.toml` (versioned inputs, §2), and parsers emit raw names only.
+- 2026-10-14: Each project-at-event entry counts on its own. Anonymous team seats count as unrated average players in the team rating.
+- 2026-10-14: Product priority: ranking hackathons is pillar 2, school vs school is pillar 3. School comes only from claimed owners; season is Aug–Jul; Devpost gets an email after launch.
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 
 ---
 
 ## 16. Open questions
 
-- **School data:** does a public Devpost user page show school? **Answered 2026-10-14: no.** Public user pages have no school or education field (checked `aaravwattal`, `NilsIrl`, `dylanjpaulson`; the only "Education" on the page is an interest tag). Devpost may collect school privately for eligibility, but it isn't published. School sometimes appears in the free-text bio ("EE+CS @ Stanford"), which is also shown under the member's name on project pages. So school comes from claims, and school boards start sparse. **Still OPEN, which fallback:** (a) parse school names out of public bios, matched against `schools.aliases` and labeled "from Devpost bio" (public data, but noisy: "ex-Google", "@ Stanford '19"); (b) infer from repeated attendance at one campus's events (weak, label it "inferred"); (c) launch school boards only once at least N claimed profiles exist.
+- **School data:** does a public Devpost user page show school? **Answered 2026-10-14: no.** Public user pages have no school or education field (checked `aaravwattal`, `NilsIrl`, `dylanjpaulson`; the only "Education" on the page is an interest tag). Devpost may collect school privately for eligibility, but it isn't published. School sometimes appears in the free-text bio ("EE+CS @ Stanford"), which is also shown under the member's name on project pages. So school comes from claims, and school boards start sparse. **Decided:** school comes only from the owner after claiming (no bio parsing, no inference). School boards fill in as people claim.
 - **Analytics:** PostHog or Vercel Analytics.
 - **Mobile nav:** bottom tab bar or full-screen menu only.
 - **Domain:** hackladder.com, .dev, or .gg (availability?).
-- **Devpost outreach:** before launch or after.
-- **Season definition:** Aug–Jul academic year (proposed) or calendar year.
+- ~~**Devpost outreach:** before launch or after.~~ After launch (§9.7).
+- ~~**Season definition:**~~ Aug–Jul academic year (decided 2026-10-14).
 
 ---
 

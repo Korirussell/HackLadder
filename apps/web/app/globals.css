@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/* =========================================================
+   Design tokens. These mirror design/reference.html exactly
+   (CLAUDE.md §4); tests/tokens.test.ts keeps them in sync.
+   ========================================================= */
+
+@theme {
+  /* Only our six colors exist: no default palette to reach for. */
+  --color-*: initial;
+  --color-paper: #f6f3ec; /* page background (never pure white) */
+  --color-ink: #17140f; /* text, primary buttons, rules under section heads */
+  --color-signal: #ff5b14; /* THE accent: mark, rating up, focus rings. Nothing else. */
+  --color-tile: #ece7de; /* rail tiles, inputs, event cards, quiet surfaces */
+  --color-graphite: #6f685e; /* secondary text, rating down */
+  --color-rule: #ddd6ca; /* hairlines between rows */
+
+  --text-hero: clamp(64px, 9.4vw, 164px);
+  --text-section: clamp(48px, 6.4vw, 104px);
+  --text-sub: clamp(22px, 2.2vw, 32px);
+  --text-sub--line-height: 1.22;
+  --text-sub--letter-spacing: -0.02em;
+  --text-body: 17px;
+  --text-body--line-height: 1.5;
+
+  --radius-button: 14px;
+  --radius-tile: 16px;
+  --radius-search: 20px;
+  --radius-card: 24px;
+
+  --spacing-rail: 96px;
+  --container-content: 1240px;
+}
+
+@theme inline {
+  --font-sans: var(--font-bricolage), system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-variation-settings: "opsz" 14;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-signal);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+/* Hero and section display type: wght 800, opsz 96, wdth 82 (§4.2). */
+@utility display {
+  font-weight: 800;
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 82;
+  letter-spacing: -0.055em;
+  line-height: 0.86;
+}
+
+/* Rank numerals: wdth 78, tighter tracking. */
+@utility numeral {
+  font-weight: 800;
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 78;
+  letter-spacing: -0.06em;
+  line-height: 0.8;
+}
+
+/* Big stats (odds, rating): wdth 80. */
+@utility stat {
+  font-weight: 800;
+  font-variation-settings: "wdth" 80;
+  letter-spacing: -0.05em;
+}

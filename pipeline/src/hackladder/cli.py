@@ -6,6 +6,7 @@ import csv
 import json
 import logging
 import os
+import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -181,7 +182,20 @@ def _connect() -> psycopg.Connection[Any]:
         raise typer.BadParameter(
             "DATABASE_URL is not set. Add it to pipeline/.env (see .env.example).", param_hint="DATABASE_URL"
         )
-    return psycopg.connect(url)
+    try:
+        return psycopg.connect(url)
+    except psycopg.OperationalError as exc:
+        hint = ""
+        if re.search(r"@db\.[a-z0-9]+\.supabase\.co", url):
+            # Supabase's direct host is IPv6-only; most home and campus networks need the pooler.
+            hint = (
+                "\nThis is Supabase's direct connection, which only works over IPv6. Use the Session pooler"
+                " string instead (Dashboard > Connect > Session pooler):"
+                " postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+            )
+        raise typer.BadParameter(
+            f"Couldn't connect to the database: {exc}{hint}", param_hint="DATABASE_URL"
+        ) from exc
 
 
 @config_app.command("seed")

@@ -8,7 +8,9 @@ from typing import Any
 
 import psycopg
 import pytest
+from typer.testing import CliRunner
 
+from hackladder.cli import app
 from hackladder.config import (
     RankTier,
     RatingConfig,
@@ -183,3 +185,12 @@ def test_scope_and_overrides_come_from_the_database(conn: psycopg.Connection[Any
     assert hid[0] in config.rated_hackathon_ids
     assert config.prize_tiers.tier("Hard Sponsor: Prize", "cfg-db-flagship") == 1
     assert config.prize_tiers.tier("Hard Sponsor: Prize", "elsewhere") == 3
+
+
+def test_hl_explains_the_ipv6_only_supabase_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    # .invalid never resolves, so this fails the same way an IPv6-only host does on an IPv4 network.
+    monkeypatch.setenv("DATABASE_URL", "postgresql://postgres:pw@db.abcdef.supabase.co.invalid:5432/postgres")
+    result = CliRunner(env={"COLUMNS": "400"}).invoke(app, ["config", "show"])
+    assert result.exit_code == 2
+    assert "Couldn't connect to the database" in result.output
+    assert "Session pooler" in result.output

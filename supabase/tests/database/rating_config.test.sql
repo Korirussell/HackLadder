@@ -2,7 +2,7 @@
 -- auth.uid() reads request.jwt.claim.sub (and, on newer stacks, request.jwt.claims); claim.sub works on both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(18);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'admin@example.com'),
@@ -78,6 +78,16 @@ select is((select event_tier from public.public_hackathons where slug = 'cfg-fla
 
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
+insert into public.prize_tier_rules (position, name, tier, pattern) values (2, 'grand', 1, 'grand prize');
+select public.move_prize_rule((select id from public.prize_tier_rules where name = 'grand'), -1);
+select results_eq(
+  'select name from public.prize_tier_rules order by position',
+  $$values ('grand'::text), ('raffle')$$,
+  'an admin can move a rule up');
+select lives_ok(
+  $$select public.move_prize_rule((select id from public.prize_tier_rules where name = 'grand'), -1)$$,
+  'moving the first rule up is a no-op');
+
 select throws_ok($$insert into public.config_changes (table_name, operation) values ('x', 'INSERT')$$,
   '42501', null, 'even admins cannot write the change log directly');
 

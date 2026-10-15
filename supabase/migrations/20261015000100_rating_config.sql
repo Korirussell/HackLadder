@@ -225,3 +225,35 @@ from public.hackathons h
 left join public.hackathon_settings s on s.hackathon_id = h.id
 where not h.is_high_school
   and not exists (select 1 from public.excluded_hackathons x where x.hackathon_id = h.id);
+
+-- ---------------------------------------------------------------- reordering prize rules
+-- Swaps a rule with its neighbour in one transaction (positions are unique, checked at commit).
+-- Security invoker: RLS still decides whether the caller may update the rules.
+create function public.move_prize_rule(rule_id bigint, direction integer) returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+  current_pos integer;
+  other_id bigint;
+  other_pos integer;
+begin
+  select position into current_pos from public.prize_tier_rules where id = rule_id;
+  if current_pos is null then
+    raise exception 'no prize rule with id %', rule_id;
+  end if;
+  select id, position into other_id, other_pos
+  from public.prize_tier_rules
+  where (direction < 0 and position < current_pos) or (direction > 0 and position > current_pos)
+  order by case when direction < 0 then -position else position end
+  limit 1;
+  if other_id is null then
+    return;  -- already first or last
+  end if;
+  update public.prize_tier_rules set position = other_pos where id = rule_id;
+  update public.prize_tier_rules set position = current_pos where id = other_id;
+end;
+$$;
+
+revoke execute on function public.move_prize_rule(bigint, integer) from public, anon;
+grant execute on function public.move_prize_rule(bigint, integer) to authenticated;

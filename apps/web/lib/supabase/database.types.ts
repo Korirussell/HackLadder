@@ -642,6 +642,121 @@ export type Database = {
           },
         ]
       }
+      mlh_event_matches: {
+        Row: {
+          hackathon_id: number | null
+          mlh_event_id: number
+          note: string | null
+          score: number | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          hackathon_id?: number | null
+          mlh_event_id: number
+          note?: string | null
+          score?: number | null
+          status: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          hackathon_id?: number | null
+          mlh_event_id?: number
+          note?: string | null
+          score?: number | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mlh_event_matches_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            referencedRelation: "hackathon_scope"
+            referencedColumns: ["hackathon_id"]
+          },
+          {
+            foreignKeyName: "mlh_event_matches_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            referencedRelation: "hackathons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mlh_event_matches_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            referencedRelation: "public_hackathons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mlh_event_matches_mlh_event_id_fkey"
+            columns: ["mlh_event_id"]
+            referencedRelation: "mlh_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mlh_event_matches_mlh_event_id_fkey"
+            columns: ["mlh_event_id"]
+            referencedRelation: "mlh_match_review"
+            referencedColumns: ["mlh_event_id"]
+          },
+        ]
+      }
+      mlh_events: {
+        Row: {
+          country: string | null
+          created_at: string
+          ends_at: string
+          format: string
+          id: number
+          is_high_school: boolean
+          location: string | null
+          name: string
+          season: string
+          slug: string
+          source_id: string
+          starts_at: string
+          underserved_types: string[]
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          ends_at: string
+          format: string
+          id?: never
+          is_high_school?: boolean
+          location?: string | null
+          name: string
+          season: string
+          slug: string
+          source_id: string
+          starts_at: string
+          underserved_types?: string[]
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          ends_at?: string
+          format?: string
+          id?: never
+          is_high_school?: boolean
+          location?: string | null
+          name?: string
+          season?: string
+          slug?: string
+          source_id?: string
+          starts_at?: string
+          underserved_types?: string[]
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       pair_synergy: {
         Row: {
           events_together: number
@@ -1583,6 +1698,46 @@ export type Database = {
             columns: ["event_tier"]
             referencedRelation: "public_event_tiers"
             referencedColumns: ["code"]
+          },
+        ]
+      }
+      mlh_match_review: {
+        Row: {
+          ends_at: string | null
+          format: string | null
+          hackathon_ends_on: string | null
+          hackathon_id: number | null
+          hackathon_slug: string | null
+          hackathon_title: string | null
+          is_high_school: boolean | null
+          location: string | null
+          mlh_event_id: number | null
+          mlh_name: string | null
+          note: string | null
+          score: number | null
+          season: string | null
+          starts_at: string | null
+          status: string | null
+          website_url: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mlh_event_matches_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            referencedRelation: "hackathon_scope"
+            referencedColumns: ["hackathon_id"]
+          },
+          {
+            foreignKeyName: "mlh_event_matches_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            referencedRelation: "hackathons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mlh_event_matches_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            referencedRelation: "public_hackathons"
+            referencedColumns: ["id"]
           },
         ]
       }

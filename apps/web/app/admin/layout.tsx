@@ -8,6 +8,7 @@ export const metadata: Metadata = { title: "Admin · HackLadder", robots: { inde
 const SECTIONS = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/events", label: "Events" },
+  { href: "/admin/mlh", label: "MLH matches" },
   { href: "/admin/prizes", label: "Prize tiers" },
   { href: "/admin/ranks", label: "Ranks and settings" },
   { href: "/admin/changes", label: "Change log" },

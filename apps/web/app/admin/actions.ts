@@ -158,3 +158,38 @@ export async function saveSettings(_prev: FormState, f: FormData): Promise<FormS
   refresh();
   return OK;
 }
+
+// ---------------------------------------------------------------- MLH matches
+export async function confirmMlhMatch(_prev: FormState, f: FormData): Promise<FormState> {
+  const { supabase } = await requireAdmin("/admin/mlh");
+  const mlhEventId = int(f, "mlh_event_id");
+  const slug = text(f, "slug").toLowerCase();
+  let hackathonId = f.get("hackathon_id") ? int(f, "hackathon_id") : null;
+  if (slug) {
+    const { data: event } = await supabase.from("hackathon_scope").select("hackathon_id").eq("slug", slug).maybeSingle();
+    if (!event?.hackathon_id) return fail(`No Devpost event "${slug}". Use its subdomain, e.g. hackgt-11.`);
+    hackathonId = event.hackathon_id;
+  }
+  if (!hackathonId) return fail("Enter the Devpost subdomain of the matching event.");
+  const { error } = await supabase.from("mlh_event_matches").upsert({
+    mlh_event_id: mlhEventId,
+    hackathon_id: hackathonId,
+    status: "confirmed",
+    note: optionalText(f, "note") ?? "confirmed by an admin",
+  });
+  if (error) return fail(`Not saved: ${error.message}`);
+  refresh();
+  return OK;
+}
+
+export async function rejectMlhMatch(f: FormData) {
+  const { supabase } = await requireAdmin("/admin/mlh");
+  const { error } = await supabase.from("mlh_event_matches").upsert({
+    mlh_event_id: int(f, "mlh_event_id"),
+    hackathon_id: null,
+    status: "rejected",
+    note: "no Devpost event (admin)",
+  });
+  if (error) throw new Error(`Couldn't save: ${error.message}`);
+  refresh();
+}

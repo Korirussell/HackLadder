@@ -491,7 +491,7 @@ Work top to bottom. Check items off here as they're done.
 
 ### Phase 0: Setup
 - [x] Monorepo scaffold per §5; uv project; Next.js app; CI running lint, typecheck and tests (pipeline, web, database jobs)
-- [ ] Supabase project linked (needs the owner's Supabase account: `supabase link --project-ref <ref>`)
+- [x] Supabase project linked; migrations applied to the hosted project (2026-10-15)
 - [x] Design tokens and font in `globals.css` matching `design/reference.html` (kept in sync by `apps/web/tests/tokens.test.ts`)
 
 ### Phase 1: Data (the hard part)

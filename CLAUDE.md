@@ -140,6 +140,7 @@ One family: **Bricolage Grotesque** (variable). The personality comes from its a
 - **Event card:** `--tile` card, radius 24, min-height 340. Title, a meta line, and big "1 in N" odds at the bottom. The #1 card is inverted (ink background).
 - **Profile header:** giant display name (hero scale), rating as a huge numeral, percentile ("Top 3%"), claim status, rating-history chart beneath.
 - **Provisional badge:** hackers with fewer than 3 rated events show a "Provisional" text tag, not a number rank.
+- **Rank tier badge:** next to the big rating number, the hacker's rank tier (§8.7), e.g. "Architect" or "Hall of Fame". Text plus a small mark, no game-style emblems; orange stays rationed.
 - **Empty states** say what to do: "No results for 'kori r'. Try your Devpost username."
 
 ### 4.5 Motion
@@ -173,7 +174,7 @@ hackladder/
 │       └── tests/
 ├── pipeline/
 │   ├── prototype/             ← validated prototype; read-only reference, see §8
-│   ├── config/                ← owner-edited inputs: prize_tiers.toml, vetted_events.toml
+│   ├── config/                ← default prize tier rules (seeded into the DB, §8.7)
 │   ├── src/hackladder/
 │   │   ├── crawl/             ← fetch, cache, rate limit, checkpoints
 │   │   ├── parse/             ← pure functions: HTML → dataclasses
@@ -237,7 +238,7 @@ The site shows "Updated every Monday".
 ### 6.4 Backfill procedure
 
 1. `hl crawl list --all` fetches the entire hackathon list (about 1,550 pages). Store it.
-2. Filter: `winners_announced = true`, not `invite_only`, not a high-school event (§9), **and the event is in scope: an MLH member event, or on the hand-vetted list** (`pipeline/config/vetted_events.toml`, with a one-line reason per event). Everything else (open online jams, corporate challenges) is out of scope for ratings. That also keeps re-submitted projects (§6.6) from farming results, and makes the backfill far smaller.
+2. Filter: `winners_announced = true`, not `invite_only`, not a high-school event (§9), **and the event is in scope** (§8.7): by default an in-person MLH member event; the admin can include any other event or exclude any event in `hackathon_settings`. Everything else (open online jams, corporate challenges) is out of scope for ratings. That also keeps re-submitted projects (§6.6) from farming results, and makes the backfill far smaller.
 3. `hl crawl events --backfill --chunk 200` crawls galleries and projects, 200 events per chunk, newest first. Checkpoints go in `crawl_checkpoints`, so killing and restarting it loses nothing.
 4. `hl parse --all` parses from storage, then `hl resolve`, `hl rate`, `hl analyze`, `hl publish`.
 5. Run a spot-check script that prints 20 random events with parsed winners and team members next to their Devpost URLs, for a human to eyeball.
@@ -266,7 +267,7 @@ Prize tiers (the owner's call, 2026-10-14):
 
 Many events have no "best overall" at all, only topic tracks, so track winners are the second-biggest result. Some sponsor challenges are genuinely hard; promote those individually with an override rather than loosening the rules.
 
-**Tiers are config, not code.** `pipeline/config/prize_tiers.toml` holds the ordered rules (first match wins, case-insensitive regex on the name with `(...)`/`[...]` reward text removed), the default tier for names no rule matches, and per-event overrides for exact prize names. Every rule lists real example names, and the tests fail if an example doesn't land in its rule's tier. `uv run hl prizes` prints every cached prize name with its tier and the rule that decided it, to review after editing. Parsers return raw prize names only; tiers are derived when loading, so a config change re-tiers everything without re-crawling.
+**Tiers are config, not code.** The live rules are in Postgres and edited on the admin page (§8.7); `pipeline/config/prize_tiers.toml` is the default set, loaded with `hl config seed`. A rule set holds the ordered rules (first match wins, case-insensitive regex on the name with `(...)`/`[...]` reward text removed), the default tier for names no rule matches, and per-event overrides for exact prize names. Every rule lists real example names, and the tests fail if an example doesn't land in its rule's tier. `uv run hl prizes` prints every cached prize name with its tier and the rule that decided it, to review after editing. Parsers return raw prize names only; tiers are derived when loading, so a config change re-tiers everything without re-crawling.
 
 ### 6.6 Devpost field notes (keep this updated)
 
@@ -431,6 +432,23 @@ Pick whichever raises hacker correlation the most without breaking the other flo
 
 ---
 
+### 8.7 Admin-configurable rating system
+
+The owner tunes the system from the website (`/admin`), not by editing code, because tiers and eligibility change over time. **Config lives in Postgres and is an input, like `corrections`:** ratings are always rebuilt from scratch from raw data plus the current config, and every run stores a snapshot of the config it used in `pipeline_runs.config_snapshot`, so any published rating can be reproduced.
+
+| What | Table | Effect |
+|---|---|---|
+| Event eligibility and event tier | `hackathon_settings` | `counts`: `auto` (in-person MLH member event counts, anything else doesn't), `include` or `exclude`. `event_tier` (S/A/B/C, from `event_tiers`) is a badge and filter only: how much a win is worth always comes from field strength, so tiers can't double-count or be gamed. High-school and `excluded_hackathons` events never count, whatever the setting (§9). |
+| Prize tier rules | `prize_tier_rules` | Ordered rules: first match wins (§6.5). Each has examples that must land in its tier. |
+| Prize overrides | `prize_tier_overrides` | Exact prize name at one hackathon, fixed tier. |
+| Rank tiers | `rank_tiers` | Display bands over non-provisional hackers by percentile, plus a top-N title. Defaults: Legend top 1%, Principal 5%, Architect 15%, Shipper 35%, Committer 60%, Hello World everyone else; Hall of Fame = top 100 overall. |
+| Global settings | `rating_settings` (one row) | Default prize tier, provisional threshold (3 events), months until inactive (18), whether MLH online events count. |
+| History | `config_changes` | Every insert, update and delete on the tables above, with who did it and the old and new rows. |
+
+The admin pages live at `/admin` (email magic-link sign-in at `/sign-in`). Every page and Server Action calls `requireAdmin()`, and non-admins get a 404. The browser preview of prize tiers (`apps/web/lib/prize-tiers.ts`) mirrors the pipeline, and a test runs every default example through both. Only admins (`admins` table, `is_admin()`) can read or write these tables; the public sees rank and event tier names through views. Changes take effect at the next rating run; the admin page has a "Recompute ratings" button that starts one. Changing the rating *math* (formula constants, the model) is still a code change that needs the §8.5 simulation rerun.
+
+**Rank presentation** (owner's call, 2026-10-15): the rating number stays primary (CS2-Premier-style), with a named tier badge (Valorant/League-style, hacker-flavored names). One all-time rating that never resets; each Aug–Jul season gets its own board (biggest climb, peak rating) and end-of-season badges. People with no rated event in 18 months drop off the live leaderboard but keep their rating and profile; there is no decay.
+
 ## 9. Privacy, safety and fairness (hard rules)
 
 1. **No minors.** Exclude high-school hackathons entirely: MLH high-school events, titles or themes containing "high school", "HS", "middle school", "secondary", or "for teens". Keep an admin-editable `excluded_hackathons` list. If a person's only events are excluded, they don't exist on HackLadder. **When in doubt, exclude.**
@@ -512,7 +530,10 @@ Work top to bottom. Check items off here as they're done.
 - [ ] Crawler with raw storage in Supabase Storage, `raw_pages_index`, checkpoints, `crawl_failures`
 - [x] Postgres migrations for §7 (plus RLS/privacy tests in `supabase/tests/`)
 - [ ] Loaders; idempotent upserts
-- [ ] Event scope: MLH member events (from mlh.io season pages, matched to Devpost events) plus `config/vetted_events.toml`; MLH high-school detection plus `excluded_hackathons`
+- [x] Parse MLH season pages (`parse_mlh_season`)
+- [ ] Match MLH events to Devpost hackathons; event scope via `hackathon_settings` (§8.7); MLH high-school detection plus `excluded_hackathons`
+- [x] Admin-configurable rating system (§8.7): config tables and change log; pipeline reads config from the DB; email sign-in; `/admin` pages for events, prize tiers, ranks and settings, change log
+- [ ] Admin "Recompute ratings" button (needs the rating port)
 - [x] Configurable prize tiers (`config/prize_tiers.toml`, `hl prizes`)
 - [ ] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test
 - [ ] Fix §8.6 isolated-pool inflation
@@ -552,7 +573,10 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run hl check https://treehacks-2024.devpost.com/   # crawl and parse one event verbosely (-q: summary only)
 uv run python scripts/fetch_fixtures.py               # (re)capture parser fixtures politely
-uv run hl prizes [--default] [--event E] [--csv out.csv]  # review prize tiers after editing config/prize_tiers.toml
+uv run hl prizes [--default] [--event E] [--csv out.csv]  # review how cached prize names are tiered
+uv run hl config seed [--replace]                  # load default prize rules into the DB (§8.7)
+uv run hl config show                              # the config the next rating run would use
+uv run pytest -m db                                # tests needing DATABASE_URL (a migrated Postgres)
 uv run hl crawl list --all
 uv run hl crawl events --backfill --chunk 200
 uv run hl parse --all
@@ -600,6 +624,8 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-14: Prize tiers are owner-defined: grand/overall 1, main track or overall runner-up 2, sponsor challenge 3, MLH/"best use of" 4, not a placement 5. Many events have only topic tracks, so track wins rank right after grand prizes. Rules, the default and per-event overrides live in `config/prize_tiers.toml` (versioned inputs, §2), and parsers emit raw names only.
 - 2026-10-14: Each project-at-event entry counts on its own. Anonymous team seats count as unrated average players in the team rating.
 - 2026-10-14: Product priority: ranking hackathons is pillar 2, school vs school is pillar 3. School comes only from claimed owners; season is Aug–Jul; Devpost gets an email after launch.
+- 2026-10-15: The rating config (event eligibility and tiers, prize rules and overrides, rank tiers, settings) moves from TOML into Postgres with an admin UI. The owner wants to tune it on the site as things change. Config is a versioned input with a change log and a per-run snapshot, so ratings stay reproducible. This supersedes `vetted_events.toml`; `prize_tiers.toml` becomes the default seed.
+- 2026-10-15: Rank presentation: rating number plus a hacker-flavored tier badge, an all-time rating with season boards, no decay (inactive after 18 months drops off the live board), and event tiers that are labels, not multipliers. Hackers compete only a few times a year, so resets and decay would make ranks noisy and unfair.
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 
 ---
@@ -620,6 +646,8 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - **Rating / score:** displayed number, `1000 + 40(μ − 3σ)`.
 - **μ, σ:** OpenSkill skill estimate and its uncertainty.
 - **Provisional:** fewer than 3 rated events; shown without a rank.
+- **Rank tier:** the named band a rating falls in (Hello World … Legend, Hall of Fame for the top 100); admin-editable (§8.7).
+- **Event tier:** an admin's S/A/B/C label on a hackathon; a badge and filter, never a rating multiplier.
 - **Elite hacker:** global top 5% by conservative rating, with at least 3 events.
 - **Win odds:** 1-in-N chance a 90th-percentile team wins a given event.
 - **Series:** all editions of one recurring hackathon.

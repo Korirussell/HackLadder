@@ -64,3 +64,13 @@ jobs:
       # Starts Postgres only, applying every migration plus seed.sql.
       - run: supabase db start
       - run: supabase test db
+      # Pipeline tests that need a migrated database (pytest -m db).
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pipeline/uv.lock
+      - name: Pipeline database tests
+        working-directory: pipeline
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: uv sync --locked && uv run pytest -m db

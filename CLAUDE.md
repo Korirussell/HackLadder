@@ -631,6 +631,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-16: Raw pages are stored in the local gzipped cache for now, with `raw_pages_index.storage_path` pointing at it. The backfill runs on a laptop (§3); moving the store to the `raw-pages` bucket comes with the scheduled GitHub Actions crawl, which needs a service-role key.
 - 2026-10-16: MLH events are matched to Devpost by name and a ±3-day deadline window. Clear winners are applied automatically; the rest go to `/admin/mlh`. Admin decisions are never overwritten, and a trigger keeps `hackathons.is_mlh` in step with accepted matches.
 - 2026-10-16: `hackathon_strength.field_mean`/`top_field` hold the hindsight values from the event analysis (final ratings), not the prototype's pre-event values, because those are what event pages show. Ranks come from prize names re-tiered with the live config at rate time, so admin tier changes apply without re-crawling.
+- 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN.
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 
 ---
@@ -640,7 +641,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - **School data:** does a public Devpost user page show school? **Answered 2026-10-14: no.** Public user pages have no school or education field (checked `aaravwattal`, `NilsIrl`, `dylanjpaulson`; the only "Education" on the page is an interest tag). Devpost may collect school privately for eligibility, but it isn't published. School sometimes appears in the free-text bio ("EE+CS @ Stanford"), which is also shown under the member's name on project pages. So school comes from claims, and school boards start sparse. **Decided:** school comes only from the owner after claiming (no bio parsing, no inference). School boards fill in as people claim.
 - **Analytics:** PostHog or Vercel Analytics.
 - **Mobile nav:** bottom tab bar or full-screen menu only.
-- **Domain:** hackladder.com, .dev, or .gg (availability?).
+- ~~**Domain:**~~ **www.hackladder.com** (bought 2026-10-15). The apex hackladder.com redirects to www. Site URL, Supabase auth redirects and the Resend sending domain all use it.
 - ~~**Devpost outreach:** before launch or after.~~ After launch (§9.7).
 - ~~**Season definition:**~~ Aug–Jul academic year (decided 2026-10-14).
 

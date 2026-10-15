@@ -127,7 +127,13 @@ def parse_tier_config(text: str) -> TierConfig:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         raise TierConfigError(f"not valid TOML: {exc}") from exc
-    _only_keys(data, {"default_tier", "tiers", "rules", "overrides"}, "prize_tiers.toml")
+    return tier_config_from_mapping(data)
+
+
+def tier_config_from_mapping(data: dict[str, Any]) -> TierConfig:
+    """Validate and build a TierConfig from the TOML's shape, whether it came from the file
+    or from the database (``hackladder.config``), so both get exactly the same checks."""
+    _only_keys(data, {"default_tier", "tiers", "rules", "overrides"}, "prize tier config")
 
     overrides: dict[tuple[str, str], Override] = {}
     for i, raw in enumerate(data.get("overrides", [])):

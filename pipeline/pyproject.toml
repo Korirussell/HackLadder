@@ -6,6 +6,8 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "beautifulsoup4>=4.15.0",
     "httpx>=0.28.1",
+    "psycopg[binary]>=3.3.6",
+    "python-dotenv>=1.2.4",
     "typer>=0.27.3",
 ]
 
@@ -26,6 +28,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-ra", "--strict-markers"]
+markers = ["db: needs DATABASE_URL pointing at a migrated Postgres (runs in CI's database job)"]
 
 [tool.ruff]
 line-length = 110

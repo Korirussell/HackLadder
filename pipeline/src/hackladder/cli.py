@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import csv
+import json
 import logging
+import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
+import psycopg
 import typer
+from dotenv import load_dotenv
 
+from hackladder.config import load_rating_config, seed_prize_rules
 from hackladder.crawl.cache import CachedFetcher, iter_cached_pages
 from hackladder.crawl.check import CheckedProject, CheckReport, normalize_event_url, run_check
 from hackladder.crawl.http import PoliteClient
@@ -163,3 +168,41 @@ def prizes(
 
 def main() -> None:
     app()
+
+
+config_app = typer.Typer(no_args_is_help=True, help="The admin-editable rating config in Postgres (§8.7).")
+app.add_typer(config_app, name="config")
+
+
+def _connect() -> psycopg.Connection[Any]:
+    load_dotenv(Path(".env"))
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise typer.BadParameter(
+            "DATABASE_URL is not set. Add it to pipeline/.env (see .env.example).", param_hint="DATABASE_URL"
+        )
+    return psycopg.connect(url)
+
+
+@config_app.command("seed")
+def config_seed(
+    tiers_file: TiersFile = CONFIG_PATH,
+    replace: Annotated[bool, typer.Option(help="Replace existing prize rules (overrides are kept).")] = False,
+) -> None:
+    """Load the default prize tier rules into the database, if it has none yet."""
+    with _connect() as conn:
+        written = seed_prize_rules(conn, tiers_file, replace=replace)
+    if written:
+        typer.echo(f"wrote {written} prize tier rules from {tiers_file}")
+    else:
+        typer.echo("prize tier rules already exist; nothing written (use --replace to overwrite)")
+
+
+@config_app.command("show")
+def config_show() -> None:
+    """Print the config the next rating run would use."""
+    with _connect() as conn:
+        config = load_rating_config(conn)
+    typer.echo(
+        json.dumps(config.snapshot() | {"rated_hackathon_ids": len(config.rated_hackathon_ids)}, indent=2)
+    )

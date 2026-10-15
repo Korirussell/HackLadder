@@ -71,7 +71,8 @@ select is(
   'every admin edit lands in the change log');
 select is(
   (select old_row ->> 'mlh_digital_counts' from public.config_changes
-   where table_name = 'rating_settings' and operation = 'UPDATE'),
+   where table_name = 'rating_settings' and operation = 'UPDATE'
+     and changed_by = '00000000-0000-0000-0000-0000000000a1'),
   'false', 'the change log keeps the old row');
 select is((select event_tier from public.public_hackathons where slug = 'cfg-flagship'), 'S',
   'event tier is public as a label');

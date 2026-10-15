@@ -239,7 +239,7 @@ The site shows "Updated every Monday".
 
 1. `hl crawl list --all` fetches the entire hackathon list (about 1,550 pages). Store it.
 2. Filter: `winners_announced = true`, not `invite_only`, not a high-school event (§9), **and the event is in scope** (§8.7): by default an in-person MLH member event; the admin can include any other event or exclude any event in `hackathon_settings`. Everything else (open online jams, corporate challenges) is out of scope for ratings. That also keeps re-submitted projects (§6.6) from farming results, and makes the backfill far smaller.
-3. `hl crawl events --backfill --chunk 200` crawls galleries and projects, 200 events per chunk, newest first. Checkpoints go in `crawl_checkpoints`, so killing and restarting it loses nothing.
+3. `hl crawl events` crawls galleries and projects (use `--limit` to work in chunks), events per chunk, newest first. Checkpoints go in `crawl_checkpoints`, so killing and restarting it loses nothing.
 4. `hl parse --all` parses from storage, then `hl resolve`, `hl rate`, `hl analyze`, `hl publish`.
 5. Run a spot-check script that prints 20 random events with parsed winners and team members next to their Devpost URLs, for a human to eyeball.
 
@@ -529,14 +529,14 @@ Work top to bottom. Check items off here as they're done.
 - [x] `hl check <event-url>`, polite client (rate limit, back-off, robots.txt), local raw cache
 - [ ] Crawler with raw storage in Supabase Storage, `raw_pages_index`, checkpoints, `crawl_failures`
 - [x] Postgres migrations for §7 (plus RLS/privacy tests in `supabase/tests/`)
-- [ ] Loaders; idempotent upserts
+- [x] Loaders; idempotent upserts
 - [x] Parse MLH season pages (`parse_mlh_season`)
 - [x] `hl crawl list` (checkpointed, raw pages kept, keyword high-school detection) and `hl mlh crawl`/`hl mlh match` with the `/admin/mlh` review page; matches set `is_mlh` and MLH's high-school flag
-- [ ] Gallery and project crawl for in-scope events; loaders for projects, prizes, members, accounts, people
+- [x] `hl crawl events`: galleries and project pages for in-scope events, newest first, checkpointed; loaders for projects, prizes, members, accounts and people (one person per account)
 - [x] Admin-configurable rating system (§8.7): config tables and change log; pipeline reads config from the DB; email sign-in; `/admin` pages for events, prize tiers, ranks and settings, change log
 - [ ] Admin "Recompute ratings" button (needs the rating port)
 - [x] Configurable prize tiers (`config/prize_tiers.toml`, `hl prizes`)
-- [ ] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test
+- [x] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test (reproduces the prototype exactly); `hl rate` rebuilds and publishes everything
 - [ ] Fix §8.6 isolated-pool inflation
 - [ ] School normalization for owner-entered schools (§16)
 - [ ] Backfill run plus spot-check report
@@ -580,9 +580,9 @@ uv run hl config show                              # the config the next rating 
 uv run pytest -m db                                # tests needing DATABASE_URL (a migrated Postgres)
 uv run hl crawl list [--incremental] [--max-pages N] [--restart]  # full crawl resumes from its checkpoint
 uv run hl mlh crawl && uv run hl mlh match    # MLH seasons, then match them to Devpost (review at /admin/mlh)
-uv run hl crawl events --backfill --chunk 200
+uv run hl crawl events [--limit N] [--slug S]  # galleries + projects for in-scope events, resumable
 uv run hl parse --all
-uv run hl rate && uv run hl analyze && uv run hl publish
+uv run hl rate                                 # replay, analyze, write *_next, publish_gold(), refresh search
 
 # prototype (reference only, SQLite)
 cd pipeline/prototype && python simulate.py
@@ -630,6 +630,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-15: Rank presentation: rating number plus a hacker-flavored tier badge, an all-time rating with season boards, no decay (inactive after 18 months drops off the live board), and event tiers that are labels, not multipliers. Hackers compete only a few times a year, so resets and decay would make ranks noisy and unfair.
 - 2026-10-16: Raw pages are stored in the local gzipped cache for now, with `raw_pages_index.storage_path` pointing at it. The backfill runs on a laptop (§3); moving the store to the `raw-pages` bucket comes with the scheduled GitHub Actions crawl, which needs a service-role key.
 - 2026-10-16: MLH events are matched to Devpost by name and a ±3-day deadline window. Clear winners are applied automatically; the rest go to `/admin/mlh`. Admin decisions are never overwritten, and a trigger keeps `hackathons.is_mlh` in step with accepted matches.
+- 2026-10-16: `hackathon_strength.field_mean`/`top_field` hold the hindsight values from the event analysis (final ratings), not the prototype's pre-event values, because those are what event pages show. Ranks come from prize names re-tiered with the live config at rate time, so admin tier changes apply without re-crawling.
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 
 ---

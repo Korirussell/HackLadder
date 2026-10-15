@@ -5,8 +5,8 @@ from datetime import date
 import pytest
 from bs4 import BeautifulSoup
 
-from hackladder.parse import parse_date_range, parse_usd, prize_tier
-from hackladder.parse.common import NOT_A_PLACEMENT, host_of, text_of, username_from_url
+from hackladder.parse import parse_date_range, parse_usd
+from hackladder.parse.common import host_of, text_of, username_from_url
 
 
 @pytest.mark.parametrize(
@@ -42,30 +42,6 @@ def test_parse_date_range_rejects_garbage(raw: str | None) -> None:
 )
 def test_parse_usd(raw: str | None, usd: int | None) -> None:
     assert parse_usd(raw) == usd
-
-
-@pytest.mark.parametrize(
-    ("name", "tier"),
-    [
-        # Real prize names from TreeHacks 2024 and Local Hack Day: Share.
-        ("Grand Prize ($10k Cash)", 1),
-        ("Education Grand Prize (4x Quest 3)", 1),
-        ("Best Use of Monster Generative AI APIs (4x XBox Series S [1st] & $400 Cash [3rd])", 4),
-        ("Codegen: Best Use of AI Agents ($3k Cash)", 4),
-        ("Most Technically Complex Hack (4x Mac Mini)", 3),
-        ("Best Project Demo on Devpost", 3),
-        ("Workshop Raffle Prizes ($10k in Prizes)", NOT_A_PLACEMENT),
-        # Generic forms from the prototype's rules.
-        ("1st Place Overall", 1),
-        ("Runner Up", 2),
-        ("3rd Place (Track: Health)", 2),
-        ("Best Use of MongoDB Atlas", 4),
-        ("MLH: Best Domain Name from GoDaddy Registry", 4),
-        ("Best Health Hack", 3),
-    ],
-)
-def test_prize_tier(name: str, tier: int) -> None:
-    assert prize_tier(name) == tier
 
 
 @pytest.mark.parametrize(

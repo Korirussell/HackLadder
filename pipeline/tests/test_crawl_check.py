@@ -7,6 +7,7 @@ from conftest import read_fixture
 
 from hackladder.crawl.check import normalize_event_url, run_check
 from hackladder.crawl.http import FetchFailedError, FetchResult
+from hackladder.prizes import load_tier_config
 
 
 class FixtureFetcher:
@@ -55,7 +56,8 @@ def test_checks_gallery_and_projects() -> None:
     assert f"{TREEHACKS}project-gallery?page=2" not in fetcher.requested
     [(entry, page)] = report.parsed
     assert entry.slug == page.slug == "baymax-your-personal-healthcare-companion"
-    assert report.tier_counts() == {1: 1, 3: 1}
+    assert report.event_slug == "treehacks-2024"
+    assert report.tier_counts(load_tier_config()) == {1: 1, 3: 1}
     assert report.team_sizes() == {4: 1}
     assert report.hackers() == {"aaravwattal", "krishparikh", "jamesc27", "jaykhem"}
     assert report.warnings == []

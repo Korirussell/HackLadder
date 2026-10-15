@@ -3,8 +3,7 @@ from __future__ import annotations
 import pytest
 from conftest import FIXTURES, read_fixture
 
-from hackladder.parse import Member, ParseError, Prize, ProjectPage, parse_project
-from hackladder.parse.common import NOT_A_PLACEMENT
+from hackladder.parse import Member, ParseError, ProjectPage, parse_project
 
 TREEHACKS = "treehacks-2024.devpost.com"
 SHARE = "share.devpost.com"
@@ -28,8 +27,8 @@ def test_winner_with_grand_and_sponsor_prizes() -> None:
         Member("jaykhem", "Jay Khemchandani"),
     )
     assert p.prizes_at_this_event == (
-        Prize("Grand Prize ($10k Cash)", 1),
-        Prize("Reazon Holdings: Best Senior-Focused Hack (4x Round Trip Tickets to Tokyo)", 3),
+        "Grand Prize ($10k Cash)",
+        "Reazon Holdings: Best Senior-Focused Hack (4x Round Trip Tickets to Tokyo)",
     )
     assert len(p.submissions) == 1
     assert p.submissions[0].hackathon_title == "TreeHacks 2024"
@@ -39,15 +38,16 @@ def test_winner_with_grand_and_sponsor_prizes() -> None:
     assert p.description_text.startswith("Inspiration\n40 million people")
 
 
-def test_sponsor_prize_with_placings_in_its_reward_is_not_a_grand_prize() -> None:
+def test_prize_names_are_kept_raw() -> None:
     p = project("vision-mama-llm-vision-pro-agents-fun-learning")
-    assert [pr.tier for pr in p.prizes_at_this_event] == [4, 4]
-    assert "[1st]" in p.prizes_at_this_event[1].name  # raw name is kept for re-deriving tiers
+    # Raw names, reward text and all: tiers are derived later from config/prize_tiers.toml.
+    assert len(p.prizes_at_this_event) == 2
+    assert "[1st]" in p.prizes_at_this_event[1]
 
 
 def test_track_grand_prize() -> None:
     p = project("lingua-franca-6xovi3")
-    assert p.prizes_at_this_event == (Prize("Education Grand Prize (4x Quest 3)", 1),)
+    assert p.prizes_at_this_event == ("Education Grand Prize (4x Quest 3)",)
     assert len(p.members) == 4
 
 
@@ -55,16 +55,16 @@ def test_solo_winner_with_non_ascii_name() -> None:
     p = project("dockerc")
     assert p.members == (Member("NilsIrl", "Nils Andr\N{LATIN SMALL LETTER E WITH ACUTE}"),)
     assert p.prizes_at_this_event == (
-        Prize("Most Technically Complex Hack (4x Mac Mini)", 3),
-        Prize("Bun: Best Use of Zig (4x iPad Pro + Interview with Bun Founder)", 4),
+        "Most Technically Complex Hack (4x Mac Mini)",
+        "Bun: Best Use of Zig (4x iPad Pro + Interview with Bun Founder)",
     )
     assert p.built_with == ("zig",)
 
 
-def test_raffle_is_not_a_placement() -> None:
+def test_raffle_prize() -> None:
     p = project("test-project-skqc27")
     assert p.members == (Member("lmoberly", "Luke McLeod Moberly"),)
-    assert p.prizes_at_this_event == (Prize("Workshop Raffle Prizes ($10k in Prizes)", NOT_A_PLACEMENT),)
+    assert p.prizes_at_this_event == ("Workshop Raffle Prizes ($10k in Prizes)",)
 
 
 def test_private_member_keeps_their_seat() -> None:
@@ -98,7 +98,7 @@ def test_five_member_team_with_two_accounts_of_the_same_name() -> None:
 def test_multi_event_project_takes_prizes_only_from_this_event() -> None:
     p = project("sequoia-tgnryh", SHARE)
     assert len(p.submissions) == 12
-    assert p.prizes_at_this_event == (Prize("Best Project Demo on Devpost", 3),)
+    assert p.prizes_at_this_event == ("Best Project Demo on Devpost",)
     won_elsewhere = [s for s in p.submissions if s.prizes and "share.devpost.com" not in s.hackathon_url]
     assert {s.hackathon_title for s in won_elsewhere} == {"COVID-19 Global Hackathon 1.0", "HackAtHome"}
     assert len(p.members) == 6

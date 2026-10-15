@@ -24,6 +24,7 @@ from hackladder.parse import (
     parse_project,
 )
 from hackladder.parse.common import host_of
+from hackladder.prizes import TierConfig
 
 log = logging.getLogger(__name__)
 
@@ -53,8 +54,14 @@ class CheckReport:
     def parsed(self) -> list[tuple[GalleryEntry, ProjectPage]]:
         return [(p.entry, p.page) for p in self.projects if p.page is not None]
 
-    def tier_counts(self) -> Counter[int]:
-        return Counter(pr.tier for _, page in self.parsed for pr in page.prizes_at_this_event)
+    @property
+    def event_slug(self) -> str:
+        return host_of(self.event_url).split(".")[0]
+
+    def tier_counts(self, tiers: TierConfig) -> Counter[int]:
+        return Counter(
+            tiers.tier(name, self.event_slug) for _, page in self.parsed for name in page.prizes_at_this_event
+        )
 
     def team_sizes(self) -> Counter[int]:
         return Counter(len(page.members) for _, page in self.parsed)

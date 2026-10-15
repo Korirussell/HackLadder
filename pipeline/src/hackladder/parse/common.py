@@ -77,33 +77,6 @@ def parse_usd(html_str: str | None) -> int | None:
     return int(digits) if digits else 0
 
 
-NOT_A_PLACEMENT = 5
-
-_TIER_RULES: tuple[tuple[int, re.Pattern[str]], ...] = (
-    (NOT_A_PLACEMENT, re.compile(r"\b(raffle|participation|attendance)\b")),
-    (1, re.compile(r"\b(grand|overall|1st|first)\b|best overall|winner$|^winner")),
-    (2, re.compile(r"\b(2nd|3rd|second|third|runner[- ]?up|finalist)\b")),
-    (4, re.compile(r"\b(best use of|sponsor|powered by|mlh|api|built with|using)\b")),
-)
-
-# Organizers often put the reward in the prize name: "Best Use of X ($1k Cash [1st] & ...)".
-_REWARD_DESCRIPTION = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")
-
-
-def prize_tier(name: str) -> int:
-    """1 grand/1st, 2 runner-up, 3 track prize (default), 4 sponsor/tech prize,
-    5 not a placement (raffles, participation). See §6.5.
-
-    Classifies on the name with parenthesized/bracketed reward descriptions removed,
-    so "[1st]" inside a sponsor prize's reward list doesn't make it a grand prize.
-    """
-    n = _REWARD_DESCRIPTION.sub(" ", _REWARD_DESCRIPTION.sub(" ", name)).lower().strip()
-    for tier, pat in _TIER_RULES:
-        if pat.search(n):
-            return tier
-    return 3
-
-
 def text_of(el: Tag | None) -> str | None:
     """Whitespace-collapsed text of ``el``, or None when missing or empty."""
     if el is None:

@@ -1,6 +1,6 @@
 """Pure parsers: raw Devpost HTML/JSON in, frozen dataclasses out. No I/O (§6.5)."""
 
-from hackladder.parse.common import ParseError, parse_date_range, parse_usd, prize_tier
+from hackladder.parse.common import ParseError, parse_date_range, parse_usd
 from hackladder.parse.gallery import parse_gallery
 from hackladder.parse.hackathon_list import parse_hackathon_list
 from hackladder.parse.models import (
@@ -9,7 +9,6 @@ from hackladder.parse.models import (
     HackathonListPage,
     HackathonMeta,
     Member,
-    Prize,
     ProjectPage,
     Submission,
     UserPage,
@@ -25,7 +24,6 @@ __all__ = [
     "Member",
     "NotAUserPageError",
     "ParseError",
-    "Prize",
     "ProjectPage",
     "Submission",
     "UserPage",
@@ -35,5 +33,4 @@ __all__ = [
     "parse_project",
     "parse_usd",
     "parse_user",
-    "prize_tier",
 ]

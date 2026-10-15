@@ -9,20 +9,36 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   if (!url || !key) return response;
 
+  try {
+    await refreshSession(request, url, key, (r) => (response = r));
+  } catch (error) {
+    // Refreshing the cookie is a convenience; pages still enforce access themselves. A bad
+    // Supabase setting shouldn't take every auth page down, so log it and serve the page.
+    console.error("proxy: couldn't refresh the Supabase session", error);
+  }
+  return response;
+}
+
+async function refreshSession(
+  request: NextRequest,
+  url: string,
+  key: string,
+  setResponse: (response: NextResponse) => void,
+) {
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (cookiesToSet, headers) => {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
-        response = NextResponse.next({ request });
+        const response = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
         for (const [header, value] of Object.entries(headers)) response.headers.set(header, value);
+        setResponse(response);
       },
     },
   });
   // Refreshes the access token if it has expired.
   await supabase.auth.getClaims();
-  return response;
 }
 
 export const config = {

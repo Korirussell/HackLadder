@@ -534,7 +534,7 @@ Work top to bottom. Check items off here as they're done.
 - [x] `hl crawl list` (checkpointed, raw pages kept, keyword high-school detection) and `hl mlh crawl`/`hl mlh match` with the `/admin/mlh` review page; matches set `is_mlh` and MLH's high-school flag
 - [x] `hl crawl events`: galleries and project pages for in-scope events, newest first, checkpointed; loaders for projects, prizes, members, accounts and people (one person per account)
 - [x] Admin-configurable rating system (§8.7): config tables and change log; pipeline reads config from the DB; email sign-in; `/admin` pages for events, prize tiers, ranks and settings, change log
-- [ ] Admin "Recompute ratings" button (needs the rating port)
+- [x] Admin "Recompute ratings" button (starts the Rate workflow; needs GITHUB_DISPATCH_TOKEN) and the nightly rate + weekly crawl workflows
 - [x] Configurable prize tiers (`config/prize_tiers.toml`, `hl prizes`)
 - [x] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test (reproduces the prototype exactly); `hl rate` rebuilds and publishes everything
 - [ ] Fix §8.6 isolated-pool inflation

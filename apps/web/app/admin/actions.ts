@@ -193,3 +193,31 @@ export async function rejectMlhMatch(f: FormData) {
   if (error) throw new Error(`Couldn't save: ${error.message}`);
   refresh();
 }
+
+// ---------------------------------------------------------------- recompute
+const RATE_WORKFLOW = "rate-nightly.yml";
+
+/** Starts the Rate workflow on GitHub Actions. Needs GITHUB_DISPATCH_TOKEN (server-only). */
+export async function requestRecompute(): Promise<FormState> {
+  await requireAdmin("/admin");
+  const token = process.env.GITHUB_DISPATCH_TOKEN;
+  const repo = process.env.GITHUB_REPOSITORY ?? "Korirussell/HackLadder";
+  if (!token) {
+    return fail(
+      "Recompute isn't connected yet: set GITHUB_DISPATCH_TOKEN (a fine-grained token with Actions: write on the repo)." +
+        " Until then, run `uv run hl rate` in pipeline/.",
+    );
+  }
+  const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${RATE_WORKFLOW}/dispatches`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    body: JSON.stringify({ ref: "main" }),
+  });
+  if (res.status !== 204) return fail(`GitHub didn't start the run (HTTP ${res.status}): ${await res.text()}`);
+  refresh();
+  return OK;
+}

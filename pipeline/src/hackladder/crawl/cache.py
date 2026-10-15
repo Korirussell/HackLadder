@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import time
 from collections.abc import Iterator
+from datetime import timedelta
 from pathlib import Path
 
 from hackladder.crawl.http import FetchResult, PoliteClient
@@ -18,8 +20,23 @@ def url_hash(url: str) -> str:
     return hashlib.sha256(url.encode("utf-8")).hexdigest()
 
 
+def raw_path(root: Path, url: str) -> Path:
+    """Where ``url``'s page lives under ``root``: sharded by the first two hex chars of its hash."""
+    h = url_hash(url)
+    return root / h[:2] / f"{h}.gz"
+
+
+def store_raw(root: Path, url: str, text: str) -> Path:
+    """Store a page gzipped under ``root``, replacing any earlier copy; returns its path."""
+    path = raw_path(root, url)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(gzip.compress(text.encode("utf-8")))
+    return path
+
+
 class CachedFetcher:
-    """Serves pages from ``root`` when present, otherwise fetches politely and stores them.
+    """Serves pages from ``root`` when present (and fresh enough), otherwise fetches politely
+    and stores them.
 
     Only 200 responses are cached; a 404 is returned to the caller but re-checked next run.
     """
@@ -29,20 +46,22 @@ class CachedFetcher:
         self._root = root
         self.hits = 0
 
-    def _path(self, url: str) -> Path:
-        h = url_hash(url)
-        return self._root / h[:2] / f"{h}.gz"
+    def path_for(self, url: str) -> Path:
+        return raw_path(self._root, url)
 
-    def get(self, url: str) -> FetchResult:
-        path = self._path(url)
-        if path.exists():
+    def get(self, url: str, max_age: timedelta | None = None) -> FetchResult:
+        """``max_age`` refetches a cached page older than that (§6.2 freshness windows)."""
+        path = self.path_for(url)
+        fresh = path.exists() and (
+            max_age is None or time.time() - path.stat().st_mtime < max_age.total_seconds()
+        )
+        if fresh:
             self.hits += 1
             text = gzip.decompress(path.read_bytes()).decode("utf-8")
             return FetchResult(url=url, status=200, text=text, fetched_at=path.stat().st_mtime)
         result = self._client.get(url)
         if result.status == 200:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(gzip.compress(result.text.encode("utf-8")))
+            store_raw(self._root, url, result.text)
         return result
 
 

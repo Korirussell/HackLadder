@@ -445,7 +445,7 @@ The owner tunes the system from the website (`/admin`), not by editing code, bec
 | Global settings | `rating_settings` (one row) | Default prize tier, provisional threshold (3 events), months until inactive (18), whether MLH online events count. |
 | History | `config_changes` | Every insert, update and delete on the tables above, with who did it and the old and new rows. |
 
-Only admins (`admins` table, `is_admin()`) can read or write these tables; the public sees rank and event tier names through views. Changes take effect at the next rating run; the admin page has a "Recompute ratings" button that starts one. Changing the rating *math* (formula constants, the model) is still a code change that needs the §8.5 simulation rerun.
+The admin pages live at `/admin` (email magic-link sign-in at `/sign-in`). Every page and Server Action calls `requireAdmin()`, and non-admins get a 404. The browser preview of prize tiers (`apps/web/lib/prize-tiers.ts`) mirrors the pipeline, and a test runs every default example through both. Only admins (`admins` table, `is_admin()`) can read or write these tables; the public sees rank and event tier names through views. Changes take effect at the next rating run; the admin page has a "Recompute ratings" button that starts one. Changing the rating *math* (formula constants, the model) is still a code change that needs the §8.5 simulation rerun.
 
 **Rank presentation** (owner's call, 2026-10-15): the rating number stays primary (CS2-Premier-style), with a named tier badge (Valorant/League-style, hacker-flavored names). One all-time rating that never resets; each Aug–Jul season gets its own board (biggest climb, peak rating) and end-of-season badges. People with no rated event in 18 months drop off the live leaderboard but keep their rating and profile; there is no decay.
 
@@ -532,7 +532,8 @@ Work top to bottom. Check items off here as they're done.
 - [ ] Loaders; idempotent upserts
 - [x] Parse MLH season pages (`parse_mlh_season`)
 - [ ] Match MLH events to Devpost hackathons; event scope via `hackathon_settings` (§8.7); MLH high-school detection plus `excluded_hackathons`
-- [ ] Admin-configurable rating system (§8.7): config tables and change log; pipeline reads config from the DB; `/admin` pages (needs sign-in, pulled forward from Phase 3); recompute button
+- [x] Admin-configurable rating system (§8.7): config tables and change log; pipeline reads config from the DB; email sign-in; `/admin` pages for events, prize tiers, ranks and settings, change log
+- [ ] Admin "Recompute ratings" button (needs the rating port)
 - [x] Configurable prize tiers (`config/prize_tiers.toml`, `hl prizes`)
 - [ ] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test
 - [ ] Fix §8.6 isolated-pool inflation

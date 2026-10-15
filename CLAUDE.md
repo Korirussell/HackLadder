@@ -639,7 +639,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 ## 16. Open questions
 
 - **School data:** does a public Devpost user page show school? **Answered 2026-10-14: no.** Public user pages have no school or education field (checked `aaravwattal`, `NilsIrl`, `dylanjpaulson`; the only "Education" on the page is an interest tag). Devpost may collect school privately for eligibility, but it isn't published. School sometimes appears in the free-text bio ("EE+CS @ Stanford"), which is also shown under the member's name on project pages. So school comes from claims, and school boards start sparse. **Decided:** school comes only from the owner after claiming (no bio parsing, no inference). School boards fill in as people claim.
-- **Analytics:** PostHog or Vercel Analytics.
+- ~~**Analytics:**~~ Vercel Web Analytics (decided 2026-10-15; `<Analytics />` in the root layout). Page views are free; custom events (search, claim_started, ...) need a paid Vercel plan, so revisit when Phase 4 adds them.
 - **Mobile nav:** bottom tab bar or full-screen menu only.
 - ~~**Domain:**~~ **www.hackladder.com** (bought 2026-10-15). The apex hackladder.com redirects to www. Site URL, Supabase auth redirects and the Resend sending domain all use it.
 - ~~**Devpost outreach:** before launch or after.~~ After launch (§9.7).

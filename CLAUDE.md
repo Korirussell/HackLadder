@@ -278,7 +278,7 @@ Many events have no "best overall" at all, only topic tracks, so track winners a
 Verified against the live site on 2026-10-14 (fixtures in `pipeline/tests/fixtures/`, provenance in `manifest.json`; `hl check https://treehacks-2024.devpost.com/` parses all 329 projects with zero warnings):
 
 - **robots.txt** allows everything for `*`; it only blocks a few named bots (BLEXBot, Omgilibot, Omgili, ImagesiftBot, Bytespider).
-- **List API.** 9 per page; `meta.total_count` was 13,889 ended events. The default order is **not chronological**: pages 40 and 120 were sorted by `registrations_count` descending, with ties newest first. Don't rely on order for incremental crawls; filter on dates. The `search=` parameter is fuzzy (unrelated events come back), so match the exact URL. `prize_amount` is not always dollars: `₹ <span…>1,475,001</span>` and `€<span…>26,200</span>` exist, so `prize_total_usd` is null for those.
+- **List API.** 9 per page; `meta.total_count` was 13,889 ended events. The default order is **not chronological**: pages 40 and 120 were sorted by `registrations_count` descending, with ties newest first. `order_by=deadline` is mostly newest-ending first, but the first ~4 results on page 1 are pinned featured events of any date (`recently-added` and `submission-deadline` behave similarly). `hl crawl list --incremental` sorts by deadline and stops at the first page where every event ended before the cutoff. The `search=` parameter is fuzzy (unrelated events come back), so match the exact URL. `prize_amount` is not always dollars: `₹ <span…>1,475,001</span>` and `€<span…>26,200</span>` exist, so `prize_total_usd` is null for those.
 - **Gallery selectors confirmed.** Entries are `div.gallery-item[data-software-id]` with `a.link-to-software`, `.software-entry-name h5` (title) and `.tagline`. The winner flag is `aside.entry-badge img.winner`. Winners are sorted first, so page 1 of a big event can be 100% winners (that's why "every entry showed Winner").
 - **Gallery pagination.** Next page is `ul.pagination li.next_page a[rel=next]`; on the last page that `li` has class `unavailable`. A small single-page gallery has **no pagination element at all**. 24 entries per page.
 - **Gallery members are only a preview**: at most 4 avatars (`span.user-profile-link[data-url]`, name in `img[alt]`), then "+ N". Private-mode members are folded into the "+ N"; deleted accounts show as a bare `img` with no link. Always take the team from the project page.
@@ -531,7 +531,8 @@ Work top to bottom. Check items off here as they're done.
 - [x] Postgres migrations for §7 (plus RLS/privacy tests in `supabase/tests/`)
 - [ ] Loaders; idempotent upserts
 - [x] Parse MLH season pages (`parse_mlh_season`)
-- [ ] Match MLH events to Devpost hackathons; event scope via `hackathon_settings` (§8.7); MLH high-school detection plus `excluded_hackathons`
+- [x] `hl crawl list` (checkpointed, raw pages kept, keyword high-school detection) and `hl mlh crawl`/`hl mlh match` with the `/admin/mlh` review page; matches set `is_mlh` and MLH's high-school flag
+- [ ] Gallery and project crawl for in-scope events; loaders for projects, prizes, members, accounts, people
 - [x] Admin-configurable rating system (§8.7): config tables and change log; pipeline reads config from the DB; email sign-in; `/admin` pages for events, prize tiers, ranks and settings, change log
 - [ ] Admin "Recompute ratings" button (needs the rating port)
 - [x] Configurable prize tiers (`config/prize_tiers.toml`, `hl prizes`)
@@ -577,7 +578,8 @@ uv run hl prizes [--default] [--event E] [--csv out.csv]  # review how cached pr
 uv run hl config seed [--replace]                  # load default prize rules into the DB (§8.7)
 uv run hl config show                              # the config the next rating run would use
 uv run pytest -m db                                # tests needing DATABASE_URL (a migrated Postgres)
-uv run hl crawl list --all
+uv run hl crawl list [--incremental] [--max-pages N] [--restart]  # full crawl resumes from its checkpoint
+uv run hl mlh crawl && uv run hl mlh match    # MLH seasons, then match them to Devpost (review at /admin/mlh)
 uv run hl crawl events --backfill --chunk 200
 uv run hl parse --all
 uv run hl rate && uv run hl analyze && uv run hl publish
@@ -626,6 +628,8 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-14: Product priority: ranking hackathons is pillar 2, school vs school is pillar 3. School comes only from claimed owners; season is Aug–Jul; Devpost gets an email after launch.
 - 2026-10-15: The rating config (event eligibility and tiers, prize rules and overrides, rank tiers, settings) moves from TOML into Postgres with an admin UI. The owner wants to tune it on the site as things change. Config is a versioned input with a change log and a per-run snapshot, so ratings stay reproducible. This supersedes `vetted_events.toml`; `prize_tiers.toml` becomes the default seed.
 - 2026-10-15: Rank presentation: rating number plus a hacker-flavored tier badge, an all-time rating with season boards, no decay (inactive after 18 months drops off the live board), and event tiers that are labels, not multipliers. Hackers compete only a few times a year, so resets and decay would make ranks noisy and unfair.
+- 2026-10-16: Raw pages are stored in the local gzipped cache for now, with `raw_pages_index.storage_path` pointing at it. The backfill runs on a laptop (§3); moving the store to the `raw-pages` bucket comes with the scheduled GitHub Actions crawl, which needs a service-role key.
+- 2026-10-16: MLH events are matched to Devpost by name and a ±3-day deadline window. Clear winners are applied automatically; the rest go to `/admin/mlh`. Admin decisions are never overwritten, and a trigger keeps `hackathons.is_mlh` in step with accepted matches.
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 
 ---

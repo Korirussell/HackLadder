@@ -19,12 +19,14 @@ from hackladder import db
 from hackladder.config import load_rating_config, seed_prize_rules
 from hackladder.crawl.cache import CachedFetcher, iter_cached_pages
 from hackladder.crawl.check import CheckedProject, CheckReport, normalize_event_url, run_check
+from hackladder.crawl.events import crawl_events
 from hackladder.crawl.http import PoliteClient
 from hackladder.crawl.listing import crawl_list
 from hackladder.mlh import apply_matches, crawl_mlh_seasons
 from hackladder.parse import ParseError, ProjectPage, parse_project
 from hackladder.parse.common import host_of
 from hackladder.prizes import CONFIG_PATH, TierConfig, TierConfigError, load_tier_config, review
+from hackladder.rate.run import run_ratings
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="HackLadder data pipeline.")
 
@@ -274,4 +276,39 @@ def mlh_match_command() -> None:
         stats.summary = dict(counts)
     typer.echo(
         ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "no MLH events yet; run `hl mlh crawl`"
+    )
+
+
+@crawl_app.command("events")
+def crawl_events_command(
+    slug: Annotated[list[str] | None, typer.Option(help="Only these events (Devpost subdomains).")] = None,
+    limit: Annotated[int | None, typer.Option(help="Stop after this many events.")] = None,
+    cache_dir: CacheDir = DEFAULT_CACHE,
+) -> None:
+    """Crawl galleries and project pages for in-scope events, newest first (resumable)."""
+    with _connect() as conn, PoliteClient() as client:
+        client.load_robots()
+        tiers = load_rating_config(conn).prize_tiers
+        with db.pipeline_run(conn, "crawl events") as stats:
+            fetcher = CachedFetcher(client, cache_dir)
+            result = crawl_events(fetcher, conn, tiers, slugs=slug, limit=limit)
+            stats.pages_fetched = client.requests_made
+            stats.failures = len(result.failures)
+            stats.summary = asdict(result)
+    typer.echo(
+        f"{result.events} events, {result.projects} projects loaded; {result.skipped} already done;"
+        f" {len(result.failures)} failed; {client.requests_made} requests, {fetcher.hits} cache hits."
+    )
+    for failure in result.failures:
+        typer.echo(f"  failed: {failure}")
+
+
+@app.command()
+def rate() -> None:
+    """Rebuild all ratings from scratch with the current config and publish them."""
+    with _connect() as conn:
+        summary = run_ratings(conn)
+    typer.echo(
+        f"Rated {summary.people} people ({summary.ranked} ranked) across {summary.events} events;"
+        f" {summary.series} series, {summary.duos} duos; event noise {summary.noise:.2f}."
     )

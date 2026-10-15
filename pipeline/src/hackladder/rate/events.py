@@ -123,7 +123,7 @@ def zscores(vals: Sequence[float]) -> list[float]:
     return [(v - m) / s for v in vals]
 
 
-def analyze(rep: Replay, series_of: Mapping[Hashable, str]) -> tuple[list[EventRow], list[SeriesRow], float]:
+def analyze(rep: Replay, series_of: Mapping[Any, str]) -> tuple[list[EventRow], list[SeriesRow], float]:
     """Rank events and series. Returns (events by rating, series by rating, calibrated noise)."""
     final = {u: r.mu for u, r in rep.ratings.items()}
     events_of: dict[Hashable, int] = defaultdict(int)

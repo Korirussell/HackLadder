@@ -1,0 +1,43 @@
+name: Weekly crawl
+
+# Mondays 06:00 UTC (§6.3): new and recently ended events, MLH updates, then ratings.
+# Recently ended events are refetched (winners settle); older ones are checkpointed and skipped.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-db
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340  # under the 6-hour job limit; the crawl is resumable if it stops early
+    defaults:
+      run:
+        working-directory: pipeline
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pipeline/uv.lock
+      - run: uv sync --locked --no-dev
+      # Raw pages persist between runs so unchanged pages aren't refetched.
+      - uses: actions/cache@v4
+        with:
+          path: pipeline/.cache/raw
+          key: raw-pages-${{ github.run_id }}
+          restore-keys: raw-pages-
+      - run: uv run hl crawl list --incremental
+      - run: uv run hl mlh crawl --first-season "$(( $(date +%Y) - 1 ))"
+      - run: uv run hl mlh match
+      - run: uv run hl crawl events
+      - run: uv run hl rate

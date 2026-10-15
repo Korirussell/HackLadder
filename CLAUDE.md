@@ -250,7 +250,7 @@ Parsers are **pure functions** (`html → dataclass`), with no I/O, and each has
 - `parse_gallery(html) -> GalleryPage(entries: tuple[GalleryEntry], has_next: bool)`
 - `parse_project(html, hackathon_host) -> ProjectPage(members, submissions, prizes_at_this_event, built_with, description_text, ...)`
 - `parse_user(html) -> UserPage(username, display_name, bio?, location?)`. There is no `school`: Devpost doesn't publish one (§16). `bio` is kept because claim verification reads it (§11).
-- `parse_mlh_season(html) -> list[MlhEvent(name, dates, is_high_school)]` (not built yet)
+- `parse_mlh_season(html) -> MlhSeasonPage(season, events: tuple[MlhEvent(name, starts_at, ends_at, format, location, website_url, is_high_school, ...)])`
 
 Markup the parser wasn't written for raises `ParseError` instead of guessing, so it shows up in `hl check` and `crawl_failures`.
 
@@ -292,6 +292,17 @@ Verified against the live site on 2026-10-14 (fixtures in `pipeline/tests/fixtur
 - **Multi-event submissions are rare at in-person events but extreme online.** None of the 329 TreeHacks 2024 projects (and none of 27 sampled elsewhere) were submitted to a second event, yet on Local Hack Day: Share (2020) `sequoia-tgnryh` went to 12 events and `smarttracker-covid19` to 21, including "Teens Take On COVID" (a minors-rule signal, §9). Fetch each project page **once** and parse it per event; don't refetch it for every gallery it appears in.
 - **User pages have no school field** (checked three users; §16). They show name, `(username)`, an optional free-text bio (`#portfolio-user-bio`), and `#portfolio-user-links` (location via `.ss-location`, plus website/GitHub, which we don't parse, §9.3). The bio is also shown under each member's name on project pages.
 - The software search API (`/software/search?query=`) returns JSON with members and a winner flag but **not** which hackathons a project was submitted to.
+
+MLH, verified 2026-10-15 (fixtures in `pipeline/tests/fixtures/mlh/`):
+
+- **robots.txt** allows `/seasons/` (it blocks `/account/`, `/v4/`, `/graphql` and a few others).
+- **Season pages are an Inertia.js app.** All data is JSON in `<script type="application/json" data-page="app">` (`component: "SeasonEvents/Index"`), in `props.pastEvents` and `props.upcomingEvents`. Each event has an `id` (UUID), `slug`, `name`, ISO `startsAt`/`endsAt` (UTC), `formatType` (`physical`, `digital`, `hybrid_physical`), `location`, `venueAddress`, `websiteUrl` and `customFields.underserved_types`.
+- **Paging:** 24 events per page, newest first, via `?page=N`; a page past the end has empty lists. The `month` filter in the props is ignored as a query parameter. The 2025 season was 195 events over 9 pages.
+- **An MLH season runs July to June** (season "2025" = 2024-07-12 to 2025-06-27). Ours runs August to July (§16), so map by date, not by MLH season name.
+- **High school flag:** `customFields.underserved_types` contains `"High School Students Only"` (6 of 195 events in 2025, e.g. JAMHacks, MasseyHacks). Use it alongside the §9 keyword rules; don't rely on it alone.
+- **MLH rarely links to Devpost:** `websiteUrl` is the event's own site (2 of 195 pointed at Devpost), so MLH events must be matched to Devpost events by name and dates.
+- **Not every flagship is MLH:** TreeHacks and HackMIT were absent from the 2025 season. PennApps, Cal Hacks, HackGT, MHacks, Hack the North, HackPrinceton, LA Hacks, nwHacks, HackTX, HackUMass, Hack@Brown and BoilerMake were members. Non-MLH flagships need the vetted list.
+- **Online MLH events** (Global Hack Week weeks, "Hack Your Portfolio") have `formatType: "digital"`, no venue, and location "Everywhere, Worldwide".
 
 ---
 

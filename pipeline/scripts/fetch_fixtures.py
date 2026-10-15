@@ -67,6 +67,21 @@ FIXTURE_SET: list[tuple[str, str, str]] = [
             ("dylanjpaulson", "no display name set: Devpost shows the username"),
         ]
     ),
+    (
+        "mlh/season-2025_p1.html",
+        "https://mlh.io/seasons/2025/events?page=1",
+        "MLH season page 1 (newest 24 events): two 'High School Students Only' events",
+    ),
+    (
+        "mlh/season-2025_p9.html",
+        "https://mlh.io/seasons/2025/events?page=9",
+        "MLH season's last page: oldest events, fewer than 24",
+    ),
+    (
+        "mlh/season-2025_p10.html",
+        "https://mlh.io/seasons/2025/events?page=10",
+        "one past the end: no events, which is how the crawler knows to stop",
+    ),
 ]
 
 

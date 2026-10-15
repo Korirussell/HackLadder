@@ -23,6 +23,24 @@
     "fetched_at": "2026-10-14T20:08:59+00:00",
     "sha256": "dfb33b0f9043061dbdd43e7a31ffbee5fa850518044340d49a3e19a7fc15cd8f"
   },
+  "mlh/season-2025_p1.html": {
+    "url": "https://mlh.io/seasons/2025/events?page=1",
+    "why": "MLH season page 1 (newest 24 events): two 'High School Students Only' events",
+    "fetched_at": "2026-10-15T14:37:40+00:00",
+    "sha256": "6b7ae85afcd3150e474a61b210f90002fb415b7e1e48609e65c8ae80edc30c23"
+  },
+  "mlh/season-2025_p10.html": {
+    "url": "https://mlh.io/seasons/2025/events?page=10",
+    "why": "one past the end: no events, which is how the crawler knows to stop",
+    "fetched_at": "2026-10-15T14:37:42+00:00",
+    "sha256": "33dc6cb72fdad323e7d3c7a1db9cb190dc89e21d2fbac4f8ac4fc729886a5ae0"
+  },
+  "mlh/season-2025_p9.html": {
+    "url": "https://mlh.io/seasons/2025/events?page=9",
+    "why": "MLH season's last page: oldest events, fewer than 24",
+    "fetched_at": "2026-10-15T14:37:41+00:00",
+    "sha256": "c4528d1d140131a2bdff87acb5fb9714c0ff4e5b26e4b2ab0b75be17a90d281e"
+  },
   "project/baymax-your-personal-healthcare-companion.html": {
     "url": "https://devpost.com/software/baymax-your-personal-healthcare-companion",
     "why": "winner: grand prize + sponsor prize, 4 members",

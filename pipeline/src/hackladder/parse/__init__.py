@@ -3,12 +3,15 @@
 from hackladder.parse.common import ParseError, parse_date_range, parse_usd
 from hackladder.parse.gallery import parse_gallery
 from hackladder.parse.hackathon_list import parse_hackathon_list
+from hackladder.parse.mlh import parse_mlh_season
 from hackladder.parse.models import (
     GalleryEntry,
     GalleryPage,
     HackathonListPage,
     HackathonMeta,
     Member,
+    MlhEvent,
+    MlhSeasonPage,
     ProjectPage,
     Submission,
     UserPage,
@@ -22,6 +25,8 @@ __all__ = [
     "HackathonListPage",
     "HackathonMeta",
     "Member",
+    "MlhEvent",
+    "MlhSeasonPage",
     "NotAUserPageError",
     "ParseError",
     "ProjectPage",
@@ -30,6 +35,7 @@ __all__ = [
     "parse_date_range",
     "parse_gallery",
     "parse_hackathon_list",
+    "parse_mlh_season",
     "parse_project",
     "parse_usd",
     "parse_user",

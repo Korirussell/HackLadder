@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 MemberKind = Literal["user", "private", "deleted"]
@@ -104,3 +104,24 @@ class UserPage:
     display_name: str
     bio: str | None
     location: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MlhEvent:
+    source_id: str  # MLH event UUID
+    slug: str
+    name: str
+    starts_at: datetime  # UTC
+    ends_at: datetime
+    format: str  # physical | digital | hybrid_physical
+    location: str | None
+    country: str | None
+    website_url: str | None  # the event's own site; almost never Devpost
+    is_high_school: bool  # MLH's "High School Students Only" flag (§9)
+    underserved_types: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MlhSeasonPage:
+    season: str  # MLH season name, e.g. "2025" (July 2024 to June 2025)
+    events: tuple[MlhEvent, ...]  # empty past the last page

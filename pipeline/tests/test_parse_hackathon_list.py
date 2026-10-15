@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from datetime import date
 
+import pytest
 from conftest import read_fixture
 
 from hackladder.parse import parse_hackathon_list
@@ -48,6 +50,13 @@ def test_titles_are_stripped_and_every_date_parses() -> None:
     hackathons = parse_hackathon_list(read_fixture("list/ended_page1.json")).hackathons
     assert next(h for h in hackathons if h.slug == "all-you-can-do-with-ai").title == "All you can do with AI"
     assert all(h.starts_on and h.ends_on and h.starts_on <= h.ends_on for h in hackathons)
+
+
+@pytest.mark.parametrize(("raw", "expected"), [(-6, None), (None, None), ("12", None), (0, 0), (1420, 1420)])
+def test_impossible_registration_counts_become_unknown(raw: object, expected: int | None) -> None:
+    data = json.loads(read_fixture("list/ended_page1.json"))
+    data["hackathons"][0]["registrations_count"] = raw
+    assert parse_hackathon_list(json.dumps(data)).hackathons[0].registrations == expected
 
 
 def test_empty_payload() -> None:

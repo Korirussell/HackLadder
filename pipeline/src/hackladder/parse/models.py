@@ -20,7 +20,7 @@ class HackathonMeta:
     is_online: bool
     starts_on: date | None
     ends_on: date | None
-    registrations: int
+    registrations: int | None  # None when missing or impossible (Devpost has served -6)
     prize_total_usd: int | None  # None when Devpost shows a non-dollar currency
     themes: tuple[str, ...]
     winners_announced: bool

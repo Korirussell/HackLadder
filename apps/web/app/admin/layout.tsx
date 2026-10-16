@@ -9,6 +9,7 @@ const SECTIONS = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/events", label: "Events" },
   { href: "/admin/mlh", label: "MLH matches" },
+  { href: "/admin/corrections", label: "Corrections" },
   { href: "/admin/prizes", label: "Prize tiers" },
   { href: "/admin/ranks", label: "Ranks and settings" },
   { href: "/admin/changes", label: "Change log" },
@@ -25,12 +26,12 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
         </Link>
         <nav aria-label="Admin sections" className="flex flex-wrap gap-x-6 gap-y-2 text-[15px] font-semibold">
           {SECTIONS.map((s) => (
-            <Link key={s.href} href={s.href} className="hover:text-graphite">
+            <Link key={s.href} href={s.href} className="hover:text-muted">
               {s.label}
             </Link>
           ))}
           <form action={signOut}>
-            <button type="submit" className="font-semibold text-graphite hover:text-ink">
+            <button type="submit" className="font-semibold text-muted hover:text-ink">
               Sign out
             </button>
           </form>

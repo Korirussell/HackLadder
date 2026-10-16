@@ -272,3 +272,29 @@ export async function requestRecompute(): Promise<FormState> {
   refresh();
   return OK;
 }
+
+// ---------------------------------------------------------------- corrections (§9.5)
+// Approving records the decision; the input change itself is made by the admin (prize
+// overrides, event settings) or, for a school, by approve_school_correction().
+export async function reviewCorrection(_prev: FormState, f: FormData): Promise<FormState> {
+  const { supabase, userId } = await requireAdmin("/admin/corrections");
+  const id = int(f, "id");
+  const decision = text(f, "decision");
+  const note = optionalText(f, "note");
+  if (decision === "approve_school") {
+    const school = text(f, "school");
+    if (!school) return fail("Give the school's name.");
+    const { error } = await supabase.rpc("approve_school_correction", { p_correction_id: id, p_school_name: school });
+    if (error) return fail(`Not saved: ${error.message}`);
+    refresh();
+    return OK;
+  }
+  if (decision !== "approved" && decision !== "rejected") return fail("Approve or reject it.");
+  const { error } = await supabase
+    .from("corrections")
+    .update({ status: decision, reviewer: userId, reviewed_at: new Date().toISOString(), note })
+    .eq("id", id);
+  if (error) return fail(`Not saved: ${error.message}`);
+  refresh();
+  return OK;
+}

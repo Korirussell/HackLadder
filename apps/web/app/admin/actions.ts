@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 
 import { requireAdmin } from "@/lib/admin";
+import { nearestFirst, type PriorMatch, searchPattern } from "@/lib/mlh-review";
 import { type PrizeRule, validateRule } from "@/lib/prize-tiers";
 import { type RankTierRow, validateRankTiers } from "@/lib/rank-tiers";
 
@@ -160,38 +161,88 @@ export async function saveSettings(_prev: FormState, f: FormData): Promise<FormS
 }
 
 // ---------------------------------------------------------------- MLH matches
-export async function confirmMlhMatch(_prev: FormState, f: FormData): Promise<FormState> {
+// Called from the review queue (app/admin/mlh/review-queue.tsx) with plain values, not forms,
+// so a batch of decisions is one request. Inputs come from the browser: validate everything.
+export type MlhDecision = { mlhEventId: number; hackathonId: number | null };
+export type MlhResult = { ok: true } | { ok: false; error: string };
+export type DevpostSearchResult = { hackathon_id: number; slug: string; title: string; ends_on: string | null };
+
+const MAX_BATCH = 1000;
+const isId = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) > 0;
+
+/** Confirms each MLH event's Devpost match, or records that it has none (hackathonId null). */
+export async function decideMlhMatches(decisions: MlhDecision[]): Promise<MlhResult> {
   const { supabase } = await requireAdmin("/admin/mlh");
-  const mlhEventId = int(f, "mlh_event_id");
-  const slug = text(f, "slug").toLowerCase();
-  let hackathonId = f.get("hackathon_id") ? int(f, "hackathon_id") : null;
-  if (slug) {
-    const { data: event } = await supabase.from("hackathon_scope").select("hackathon_id").eq("slug", slug).maybeSingle();
-    if (!event?.hackathon_id) return fail(`No Devpost event "${slug}". Use its subdomain, e.g. hackgt-11.`);
-    hackathonId = event.hackathon_id;
+  if (!Array.isArray(decisions) || decisions.length === 0 || decisions.length > MAX_BATCH) {
+    return { ok: false, error: `Send 1 to ${MAX_BATCH} decisions.` };
   }
-  if (!hackathonId) return fail("Enter the Devpost subdomain of the matching event.");
-  const { error } = await supabase.from("mlh_event_matches").upsert({
-    mlh_event_id: mlhEventId,
-    hackathon_id: hackathonId,
-    status: "confirmed",
-    note: optionalText(f, "note") ?? "confirmed by an admin",
-  });
-  if (error) return fail(`Not saved: ${error.message}`);
+  if (!decisions.every((d) => isId(d?.mlhEventId) && (d.hackathonId === null || isId(d.hackathonId)))) {
+    return { ok: false, error: "Some decisions weren't valid ids." };
+  }
+  const rows = decisions.map((d) =>
+    d.hackathonId === null
+      ? { mlh_event_id: d.mlhEventId, hackathon_id: null, status: "rejected", note: "no Devpost event (admin)" }
+      : { mlh_event_id: d.mlhEventId, hackathon_id: d.hackathonId, status: "confirmed", note: "confirmed by an admin" },
+  );
+  const { error } = await supabase.from("mlh_event_matches").upsert(rows);
+  if (error) return { ok: false, error: `Not saved: ${error.message}` };
   refresh();
-  return OK;
+  return { ok: true };
 }
 
-export async function rejectMlhMatch(f: FormData) {
+const PRIOR_STATUSES = new Set<PriorMatch["status"]>(["auto", "suggested", "unmatched", "confirmed", "rejected"]);
+
+/** Puts rows back the way they were before a batch of decisions (the queue's Undo). */
+export async function undoMlhDecisions(prior: PriorMatch[]): Promise<MlhResult> {
   const { supabase } = await requireAdmin("/admin/mlh");
-  const { error } = await supabase.from("mlh_event_matches").upsert({
-    mlh_event_id: int(f, "mlh_event_id"),
-    hackathon_id: null,
-    status: "rejected",
-    note: "no Devpost event (admin)",
-  });
-  if (error) throw new Error(`Couldn't save: ${error.message}`);
+  if (!Array.isArray(prior) || prior.length === 0 || prior.length > MAX_BATCH) {
+    return { ok: false, error: "Nothing to undo." };
+  }
+  const valid = prior.every(
+    (p) =>
+      isId(p?.mlh_event_id) &&
+      (p.hackathon_id === null || isId(p.hackathon_id)) &&
+      (p.score === null || Number.isFinite(p.score)) &&
+      (p.note === null || typeof p.note === "string") &&
+      PRIOR_STATUSES.has(p.status),
+  );
+  if (!valid) return { ok: false, error: "Couldn't undo: the saved state wasn't valid." };
+  const rows = prior.map(({ mlh_event_id, hackathon_id, score, status, note }) => ({
+    mlh_event_id,
+    hackathon_id,
+    score,
+    status,
+    note,
+  }));
+  const { error } = await supabase.from("mlh_event_matches").upsert(rows);
+  if (error) return { ok: false, error: `Couldn't undo: ${error.message}` };
   refresh();
+  return { ok: true };
+}
+
+/** Devpost events whose title or subdomain contains every word of `q`, nearest `near` first. */
+export async function searchDevpostEvents(
+  q: string,
+  near: string | null,
+): Promise<{ results: DevpostSearchResult[]; error?: string }> {
+  const { supabase } = await requireAdmin("/admin/mlh");
+  const pattern = typeof q === "string" ? searchPattern(q) : null;
+  if (!pattern) return { results: [] };
+  const columns = "hackathon_id, slug, title, ends_on";
+  const [byTitle, bySlug] = await Promise.all([
+    supabase.from("hackathon_scope").select(columns).ilike("title", pattern).limit(60),
+    supabase.from("hackathon_scope").select(columns).ilike("slug", pattern).limit(60),
+  ]);
+  const error = byTitle.error ?? bySlug.error;
+  if (error) return { results: [], error: `Search failed: ${error.message}` };
+  const seen = new Set<number>();
+  const results: DevpostSearchResult[] = [];
+  for (const r of [...(byTitle.data ?? []), ...(bySlug.data ?? [])]) {
+    if (r.hackathon_id === null || seen.has(r.hackathon_id)) continue;
+    seen.add(r.hackathon_id);
+    results.push({ hackathon_id: r.hackathon_id, slug: r.slug ?? "", title: r.title ?? r.slug ?? "", ends_on: r.ends_on });
+  }
+  return { results: nearestFirst(results, typeof near === "string" ? near : null) };
 }
 
 // ---------------------------------------------------------------- recompute

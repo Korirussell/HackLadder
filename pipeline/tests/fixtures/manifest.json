@@ -41,6 +41,30 @@
     "fetched_at": "2026-10-15T14:37:41+00:00",
     "sha256": "c4528d1d140131a2bdff87acb5fb9714c0ff4e5b26e4b2ab0b75be17a90d281e"
   },
+  "mlh/season-2027_p3.html": {
+    "url": "https://mlh.io/seasons/2027/events?page=3",
+    "why": "current season's last page of past events: 1 past, plus all 69 upcoming events",
+    "fetched_at": "2026-10-16T14:15:48+00:00",
+    "sha256": "754b548e2d5ddce177be2f878c428f1f5aedb0ab218b692ba3dc16dc94825f08"
+  },
+  "mlh/season-2027_p4.html": {
+    "url": "https://mlh.io/seasons/2027/events?page=4",
+    "why": "current season past the end: no past events, but the same 69 upcoming ones repeat",
+    "fetched_at": "2026-10-16T14:15:55+00:00",
+    "sha256": "fe5c678a1703579a46f92eff7f1c7ccfdfb3ae483352c281bb07dc947bb75796"
+  },
+  "mlh/season-eu-2020_p1.html": {
+    "url": "https://mlh.io/seasons/eu-2020/events?page=1",
+    "why": "pre-2021 Europe season: one page of 16 events, seriesName '2020 Europe'",
+    "fetched_at": "2026-10-16T14:31:07+00:00",
+    "sha256": "bab539f9bbe3ffc067340a25e67d5760fbfd086367e9f555c485c2b14eb70ac8"
+  },
+  "mlh/season-na-2020_p1.html": {
+    "url": "https://mlh.io/seasons/na-2020/events?page=1",
+    "why": "pre-2021 seasons are regional (seasons/2020 is a 404): North America, seriesName '2020 NA'",
+    "fetched_at": "2026-10-16T14:31:06+00:00",
+    "sha256": "4d48cc7187dc9cb49e9afd0d2ca818181cf70faab5aaeca523f03cd38f7246a4"
+  },
   "project/baymax-your-personal-healthcare-companion.html": {
     "url": "https://devpost.com/software/baymax-your-personal-healthcare-companion",
     "why": "winner: grand prize + sponsor prize, 4 members",

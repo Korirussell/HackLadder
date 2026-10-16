@@ -82,6 +82,26 @@ FIXTURE_SET: list[tuple[str, str, str]] = [
         "https://mlh.io/seasons/2025/events?page=10",
         "one past the end: no events, which is how the crawler knows to stop",
     ),
+    (
+        "mlh/season-2027_p3.html",
+        "https://mlh.io/seasons/2027/events?page=3",
+        "current season's last page of past events: 1 past, plus all 69 upcoming events",
+    ),
+    (
+        "mlh/season-2027_p4.html",
+        "https://mlh.io/seasons/2027/events?page=4",
+        "current season past the end: no past events, but the same 69 upcoming ones repeat",
+    ),
+    (
+        "mlh/season-na-2020_p1.html",
+        "https://mlh.io/seasons/na-2020/events?page=1",
+        "pre-2021 seasons are regional (seasons/2020 is a 404): North America, seriesName '2020 NA'",
+    ),
+    (
+        "mlh/season-eu-2020_p1.html",
+        "https://mlh.io/seasons/eu-2020/events?page=1",
+        "pre-2021 Europe season: one page of 16 events, seriesName '2020 Europe'",
+    ),
 ]
 
 

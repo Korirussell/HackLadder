@@ -44,12 +44,12 @@ async function Overview() {
 
   return (
     <>
-      <p className="text-[15px] text-graphite">Signed in as {email}.</p>
+      <p className="text-[15px] text-muted">Signed in as {email}.</p>
       <div className="mt-8 grid gap-5 min-[900px]:grid-cols-2">
         {cards.map((c) => (
-          <Link key={c.href} href={c.href} className="flex min-h-[180px] flex-col rounded-card bg-tile p-7 hover:bg-rule">
+          <Link key={c.href} href={c.href} className="flex min-h-[180px] flex-col rounded-card bg-chrome p-7 hover:bg-line">
             <span className="stat mt-auto text-[48px] leading-none">{c.stat}</span>
-            <span className="mt-2 text-[15px] text-graphite">{c.label}</span>
+            <span className="mt-2 text-[15px] text-muted">{c.label}</span>
           </Link>
         ))}
       </div>
@@ -63,7 +63,7 @@ async function Overview() {
         <h2 id="runs-head" className="border-b border-ink pb-3 text-[28px] font-bold tracking-[-0.03em]">
           Pipeline runs
         </h2>
-        <p className="mt-3 max-w-[70ch] text-graphite">
+        <p className="mt-3 max-w-[70ch] text-muted">
           Ratings rebuild nightly and after every Monday crawl. Recompute now to apply config changes immediately.
         </p>
         <div className="mt-5">
@@ -82,16 +82,16 @@ async function RecentRuns() {
     .select("id, job, status, started_at, finished_at, pages_fetched, people_rated, summary")
     .order("started_at", { ascending: false })
     .limit(10);
-  if (!runs?.length) return <p className="mt-6 text-graphite">No runs yet.</p>;
+  if (!runs?.length) return <p className="mt-6 text-muted">No runs yet.</p>;
   const when = (iso: string) => new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
   return (
-    <ul className="mt-6 border-t border-rule">
+    <ul className="mt-6 border-t border-line">
       {runs.map((r) => (
-        <li key={r.id} className="grid gap-1 border-b border-rule py-3 text-[15px] min-[900px]:grid-cols-[200px_160px_120px_1fr]">
-          <time dateTime={r.started_at} className="text-graphite">{when(r.started_at)}</time>
+        <li key={r.id} className="grid gap-1 border-b border-line py-3 text-[15px] min-[900px]:grid-cols-[200px_160px_120px_1fr]">
+          <time dateTime={r.started_at} className="text-muted">{when(r.started_at)}</time>
           <span className="font-semibold">{r.job}</span>
-          <span className={r.status === "failed" ? "font-bold" : "text-graphite"}>{r.status}</span>
-          <span className="text-graphite break-words">
+          <span className={r.status === "failed" ? "font-bold" : "text-muted"}>{r.status}</span>
+          <span className="text-muted break-words">
             {r.people_rated ? `${r.people_rated} people rated` : r.pages_fetched ? `${r.pages_fetched} requests` : ""}
             {r.status === "failed" && r.summary && typeof r.summary === "object" && "error" in r.summary
               ? ` · ${String((r.summary as { error: unknown }).error).slice(0, 160)}`

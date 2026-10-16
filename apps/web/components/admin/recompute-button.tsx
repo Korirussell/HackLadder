@@ -13,7 +13,7 @@ export function RecomputeButton() {
         {pending ? "Starting" : "Recompute ratings"}
       </button>
       {state.ok && !pending && (
-        <p role="status" className="mt-3 text-[15px] text-graphite">
+        <p role="status" className="mt-3 text-[15px] text-muted">
           Started. A full rerun takes a few minutes; it appears below when it finishes.
         </p>
       )}

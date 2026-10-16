@@ -62,14 +62,14 @@ async function EventList({ searchParams }: Pick<PageProps<"/admin/events">, "sea
           <input id="q" name="q" defaultValue={q} placeholder="TreeHacks, hackmit-2025" className={`${input} mt-1`} />
         </div>
         <input type="hidden" name="show" value={filter} />
-        <button type="submit" className="rounded-button bg-ink px-5 py-2.5 font-bold text-paper">
+        <button type="submit" className="rounded-button bg-ink px-5 py-2.5 font-bold text-bg">
           Search
         </button>
       </form>
       <nav aria-label="Filter" className="mt-5 flex flex-wrap gap-5 text-[15px]">
         {(Object.keys(FILTERS) as Filter[]).map((f) => (
           <Link key={f} href={href({ show: f, page: 1 })} aria-current={f === filter ? "page" : undefined}
-            className={f === filter ? "font-bold underline underline-offset-4" : "text-graphite hover:text-ink"}>
+            className={f === filter ? "font-bold underline underline-offset-4" : "text-muted hover:text-ink"}>
             {FILTERS[f]}
           </Link>
         ))}
@@ -82,18 +82,18 @@ async function EventList({ searchParams }: Pick<PageProps<"/admin/events">, "sea
             : "No events loaded yet. They appear here after the first crawl."}
         </p>
       ) : (
-        <ul className="mt-8 border-t border-rule">
+        <ul className="mt-8 border-t border-line">
           {events.map((e) => (
-            <li key={e.hackathon_id} className="grid gap-4 border-b border-rule py-6 min-[900px]:grid-cols-[1fr_1.4fr]">
+            <li key={e.hackathon_id} className="grid gap-4 border-b border-line py-6 min-[900px]:grid-cols-[1fr_1.4fr]">
               <div>
                 <p className="text-[22px] leading-tight font-bold tracking-[-0.02em]">{e.title}</p>
-                <p className="mt-1 text-[14px] text-graphite">
+                <p className="mt-1 text-[14px] text-muted">
                   {e.slug} · {e.ends_on ?? "no date"} · {e.is_mlh ? "MLH" : "not MLH"}
                   {e.is_online ? " · online" : ""}
                 </p>
                 <p className="mt-2 text-[15px]">
                   <b>{e.is_rated ? "Counts" : "Doesn't count"}</b>
-                  <span className="text-graphite">: {e.reason}</span>
+                  <span className="text-muted">: {e.reason}</span>
                 </p>
               </div>
               <ActionForm action={saveHackathonSetting} submitLabel="Save" className="grid gap-3 min-[600px]:grid-cols-3">
@@ -129,7 +129,7 @@ async function EventList({ searchParams }: Pick<PageProps<"/admin/events">, "sea
         <nav aria-label="Pages" className="mt-8 flex gap-6 font-bold">
           {page > 1 && <Link href={href({ page: page - 1 })}>Newer</Link>}
           {page * PAGE_SIZE < (count ?? 0) && <Link href={href({ page: page + 1 })}>Older</Link>}
-          <span className="font-normal text-graphite">
+          <span className="font-normal text-muted">
             Page {page} of {Math.ceil((count ?? 0) / PAGE_SIZE)}
           </span>
         </nav>

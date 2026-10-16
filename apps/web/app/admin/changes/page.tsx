@@ -49,10 +49,10 @@ async function Changes() {
   if (!data.length) return <p className="mt-8">No changes yet.</p>;
 
   return (
-    <ol className="border-t border-rule">
+    <ol className="border-t border-line">
       {data.map((c) => (
-        <li key={c.id} className="grid gap-1 border-b border-rule py-4 min-[900px]:grid-cols-[180px_160px_1fr]">
-          <time dateTime={c.changed_at} className="text-[14px] text-graphite">
+        <li key={c.id} className="grid gap-1 border-b border-line py-4 min-[900px]:grid-cols-[180px_160px_1fr]">
+          <time dateTime={c.changed_at} className="text-[14px] text-muted">
             {new Date(c.changed_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
           </time>
           <span className="font-semibold">
@@ -60,7 +60,7 @@ async function Changes() {
           </span>
           <span className="text-[15px] break-words">
             {diff(c.old_row, c.new_row) || "no visible change"}
-            {!c.changed_by && <span className="text-graphite"> · by the pipeline</span>}
+            {!c.changed_by && <span className="text-muted"> · by the pipeline</span>}
           </span>
         </li>
       ))}

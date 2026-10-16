@@ -1,34 +1,40 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { SectionHead, Win } from "@/components/os/window";
 import { safeNext } from "@/lib/safe-next";
 
 import { SignInForm } from "./sign-in-form";
 
-export const metadata: Metadata = { title: "Sign in · HackLadder", robots: { index: false } };
+export const metadata: Metadata = { title: "Sign in", robots: { index: false } };
 
 export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {
   return (
-    <main className="mx-auto flex min-h-svh max-w-content flex-col justify-center px-4 py-16 min-[900px]:pl-[calc(var(--spacing-rail)+40px)]">
-      <h1 className="display text-section">Sign in</h1>
-      <p className="mt-6 max-w-[34ch] text-graphite">We&apos;ll email you a link. No password.</p>
-      <Suspense fallback={null}>
-        <Form searchParams={searchParams} />
-      </Suspense>
-    </main>
+    <>
+      <SectionHead as="h1" title="Sign in">
+        We&apos;ll email you a link. No password.
+      </SectionHead>
+      <div className="max-w-[640px]">
+        <Win title="sign_in.app">
+          <Suspense fallback={null}>
+            <Form searchParams={searchParams} />
+          </Suspense>
+        </Win>
+      </div>
+    </>
   );
 }
 
 async function Form({ searchParams }: Pick<PageProps<"/sign-in">, "searchParams">) {
   const { next, error } = await searchParams;
   return (
-    <>
+    <div className="p-[22px]">
       {error === "link" && (
-        <p role="alert" className="mt-6 max-w-[44ch]">
+        <p role="alert" className="mb-4 max-w-[44ch]">
           That sign-in link expired or was already used. Send yourself a new one.
         </p>
       )}
       <SignInForm next={safeNext(typeof next === "string" ? next : undefined, "/")} />
-    </>
+    </div>
   );
 }

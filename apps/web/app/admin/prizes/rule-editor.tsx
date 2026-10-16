@@ -70,7 +70,7 @@ export function RuleEditor({ rule, allRules, defaultTier }: { rule: EditableRule
         <button type="submit" disabled={pending || problems.length > 0} className={button}>
           {pending ? "Saving" : rule.id === null ? "Add rule" : "Save rule"}
         </button>
-        {state.ok && !pending && <span role="status" className="text-[15px] text-graphite">Saved. Applies at the next rating run.</span>}
+        {state.ok && !pending && <span role="status" className="text-[15px] text-muted">Saved. Applies at the next rating run.</span>}
       </div>
       {[...problems, ...state.errors].length > 0 && (
         <ul role="alert" className="list-disc pl-5 text-[15px]">
@@ -86,12 +86,12 @@ export function PrizeTester({ rules, defaultTier }: { rules: PrizeRule[]; defaul
   const [name, setName] = useState("Best Use of MongoDB Atlas (Wireless Earbuds [1st])");
   const decision = classify(rules, defaultTier, name);
   return (
-    <div className="rounded-card bg-tile p-7">
+    <div className="rounded-card bg-chrome p-7">
       <label className={label} htmlFor="tester">Try a prize name</label>
-      <input id="tester" value={name} onChange={(e) => setName(e.target.value)} className="mt-2 w-full rounded-tile bg-paper px-4 py-2.5 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--color-signal)]" />
+      <input id="tester" value={name} onChange={(e) => setName(e.target.value)} className="mt-2 w-full rounded-tile bg-bg px-4 py-2.5 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--color-select)]" />
       <p className="mt-4" aria-live="polite">
         <span className="stat text-[40px]">Tier {decision.tier}</span>
-        <span className="ml-3 text-graphite">
+        <span className="ml-3 text-muted">
           {decision.reason === "default" ? "no rule matched, so the default tier" : `decided by ${decision.reason.replace("rule: ", "")}`}
         </span>
       </p>

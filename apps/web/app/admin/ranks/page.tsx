@@ -32,7 +32,7 @@ async function RankTiers() {
     <div className="grid gap-14">
       <section aria-labelledby="tiers-head">
         <h2 id="tiers-head" className="border-b border-ink pb-3 text-[28px] font-bold tracking-[-0.03em]">Rank tiers</h2>
-        <p className="mt-3 max-w-[70ch] text-graphite">
+        <p className="mt-3 max-w-[70ch] text-muted">
           Among non-provisional hackers, highest first. A top-N title (Hall of Fame) beats percentile bands; the last tier
           is everyone else.
         </p>
@@ -40,7 +40,7 @@ async function RankTiers() {
           {tiers?.map((t) => {
             const kind = t.top_n !== null ? "top_n" : t.top_percent !== null ? "percent" : "floor";
             return (
-              <li key={t.id} className="border-b border-rule py-6">
+              <li key={t.id} className="border-b border-line py-6">
                 <ActionForm action={saveRankTier} submitLabel="Save" className="grid items-end gap-4 min-[800px]:grid-cols-[2fr_1.4fr_1fr]">
                   <input type="hidden" name="id" value={t.id} />
                   <div>

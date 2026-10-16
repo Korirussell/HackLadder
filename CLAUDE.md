@@ -239,7 +239,7 @@ The site shows "Updated every Monday".
 
 1. `hl crawl list --all` fetches the entire hackathon list (about 1,550 pages). Store it.
 2. Filter: `winners_announced = true`, not `invite_only`, not a high-school event (§9), **and the event is in scope** (§8.7): by default an in-person MLH member event; the admin can include any other event or exclude any event in `hackathon_settings`. Everything else (open online jams, corporate challenges) is out of scope for ratings. That also keeps re-submitted projects (§6.6) from farming results, and makes the backfill far smaller.
-3. `hl crawl events --backfill --chunk 200` crawls galleries and projects, 200 events per chunk, newest first. Checkpoints go in `crawl_checkpoints`, so killing and restarting it loses nothing.
+3. `hl crawl events` crawls galleries and projects (use `--limit` to work in chunks), events per chunk, newest first. Checkpoints go in `crawl_checkpoints`, so killing and restarting it loses nothing.
 4. `hl parse --all` parses from storage, then `hl resolve`, `hl rate`, `hl analyze`, `hl publish`.
 5. Run a spot-check script that prints 20 random events with parsed winners and team members next to their Devpost URLs, for a human to eyeball.
 
@@ -278,7 +278,7 @@ Many events have no "best overall" at all, only topic tracks, so track winners a
 Verified against the live site on 2026-10-14 (fixtures in `pipeline/tests/fixtures/`, provenance in `manifest.json`; `hl check https://treehacks-2024.devpost.com/` parses all 329 projects with zero warnings):
 
 - **robots.txt** allows everything for `*`; it only blocks a few named bots (BLEXBot, Omgilibot, Omgili, ImagesiftBot, Bytespider).
-- **List API.** 9 per page; `meta.total_count` was 13,889 ended events. The default order is **not chronological**: pages 40 and 120 were sorted by `registrations_count` descending, with ties newest first. Don't rely on order for incremental crawls; filter on dates. The `search=` parameter is fuzzy (unrelated events come back), so match the exact URL. `prize_amount` is not always dollars: `₹ <span…>1,475,001</span>` and `€<span…>26,200</span>` exist, so `prize_total_usd` is null for those.
+- **List API.** 9 per page; `meta.total_count` was 13,889 ended events. The default order is **not chronological**: pages 40 and 120 were sorted by `registrations_count` descending, with ties newest first. `order_by=deadline` is mostly newest-ending first, but the first ~4 results on page 1 are pinned featured events of any date (`recently-added` and `submission-deadline` behave similarly). `hl crawl list --incremental` sorts by deadline and stops at the first page where every event ended before the cutoff. The `search=` parameter is fuzzy (unrelated events come back), so match the exact URL. `registrations_count` can be nonsense (CodeCatalyst 2024 had **-6**), so negative or non-integer counts load as null. `prize_amount` is not always dollars: `₹ <span…>1,475,001</span>` and `€<span…>26,200</span>` exist, so `prize_total_usd` is null for those.
 - **Gallery selectors confirmed.** Entries are `div.gallery-item[data-software-id]` with `a.link-to-software`, `.software-entry-name h5` (title) and `.tagline`. The winner flag is `aside.entry-badge img.winner`. Winners are sorted first, so page 1 of a big event can be 100% winners (that's why "every entry showed Winner").
 - **Gallery pagination.** Next page is `ul.pagination li.next_page a[rel=next]`; on the last page that `li` has class `unavailable`. A small single-page gallery has **no pagination element at all**. 24 entries per page.
 - **Gallery members are only a preview**: at most 4 avatars (`span.user-profile-link[data-url]`, name in `img[alt]`), then "+ N". Private-mode members are folded into the "+ N"; deleted accounts show as a bare `img` with no link. Always take the team from the project page.
@@ -529,13 +529,14 @@ Work top to bottom. Check items off here as they're done.
 - [x] `hl check <event-url>`, polite client (rate limit, back-off, robots.txt), local raw cache
 - [ ] Crawler with raw storage in Supabase Storage, `raw_pages_index`, checkpoints, `crawl_failures`
 - [x] Postgres migrations for §7 (plus RLS/privacy tests in `supabase/tests/`)
-- [ ] Loaders; idempotent upserts
+- [x] Loaders; idempotent upserts
 - [x] Parse MLH season pages (`parse_mlh_season`)
-- [ ] Match MLH events to Devpost hackathons; event scope via `hackathon_settings` (§8.7); MLH high-school detection plus `excluded_hackathons`
+- [x] `hl crawl list` (checkpointed, raw pages kept, keyword high-school detection) and `hl mlh crawl`/`hl mlh match` with the `/admin/mlh` review page; matches set `is_mlh` and MLH's high-school flag
+- [x] `hl crawl events`: galleries and project pages for in-scope events, newest first, checkpointed; loaders for projects, prizes, members, accounts and people (one person per account)
 - [x] Admin-configurable rating system (§8.7): config tables and change log; pipeline reads config from the DB; email sign-in; `/admin` pages for events, prize tiers, ranks and settings, change log
-- [ ] Admin "Recompute ratings" button (needs the rating port)
+- [x] Admin "Recompute ratings" button (starts the Rate workflow; needs GITHUB_DISPATCH_TOKEN) and the nightly rate + weekly crawl workflows
 - [x] Configurable prize tiers (`config/prize_tiers.toml`, `hl prizes`)
-- [ ] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test
+- [x] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test (reproduces the prototype exactly); `hl rate` rebuilds and publishes everything
 - [ ] Fix §8.6 isolated-pool inflation
 - [ ] School normalization for owner-entered schools (§16)
 - [ ] Backfill run plus spot-check report
@@ -577,10 +578,11 @@ uv run hl prizes [--default] [--event E] [--csv out.csv]  # review how cached pr
 uv run hl config seed [--replace]                  # load default prize rules into the DB (§8.7)
 uv run hl config show                              # the config the next rating run would use
 uv run pytest -m db                                # tests needing DATABASE_URL (a migrated Postgres)
-uv run hl crawl list --all
-uv run hl crawl events --backfill --chunk 200
+uv run hl crawl list [--incremental] [--max-pages N] [--restart]  # full crawl resumes from its checkpoint
+uv run hl mlh crawl && uv run hl mlh match    # MLH seasons, then match them to Devpost (review at /admin/mlh)
+uv run hl crawl events [--limit N] [--slug S]  # galleries + projects for in-scope events, resumable
 uv run hl parse --all
-uv run hl rate && uv run hl analyze && uv run hl publish
+uv run hl rate                                 # replay, analyze, write *_next, publish_gold(), refresh search
 
 # prototype (reference only, SQLite)
 cd pipeline/prototype && python simulate.py
@@ -626,6 +628,10 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-14: Product priority: ranking hackathons is pillar 2, school vs school is pillar 3. School comes only from claimed owners; season is Aug–Jul; Devpost gets an email after launch.
 - 2026-10-15: The rating config (event eligibility and tiers, prize rules and overrides, rank tiers, settings) moves from TOML into Postgres with an admin UI. The owner wants to tune it on the site as things change. Config is a versioned input with a change log and a per-run snapshot, so ratings stay reproducible. This supersedes `vetted_events.toml`; `prize_tiers.toml` becomes the default seed.
 - 2026-10-15: Rank presentation: rating number plus a hacker-flavored tier badge, an all-time rating with season boards, no decay (inactive after 18 months drops off the live board), and event tiers that are labels, not multipliers. Hackers compete only a few times a year, so resets and decay would make ranks noisy and unfair.
+- 2026-10-16: Raw pages are stored in the local gzipped cache for now, with `raw_pages_index.storage_path` pointing at it. The backfill runs on a laptop (§3); moving the store to the `raw-pages` bucket comes with the scheduled GitHub Actions crawl, which needs a service-role key.
+- 2026-10-16: MLH events are matched to Devpost by name and a ±3-day deadline window. Clear winners are applied automatically; the rest go to `/admin/mlh`. Admin decisions are never overwritten, and a trigger keeps `hackathons.is_mlh` in step with accepted matches.
+- 2026-10-16: `hackathon_strength.field_mean`/`top_field` hold the hindsight values from the event analysis (final ratings), not the prototype's pre-event values, because those are what event pages show. Ranks come from prize names re-tiered with the live config at rate time, so admin tier changes apply without re-crawling.
+- 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN.
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 
 ---
@@ -633,9 +639,9 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 ## 16. Open questions
 
 - **School data:** does a public Devpost user page show school? **Answered 2026-10-14: no.** Public user pages have no school or education field (checked `aaravwattal`, `NilsIrl`, `dylanjpaulson`; the only "Education" on the page is an interest tag). Devpost may collect school privately for eligibility, but it isn't published. School sometimes appears in the free-text bio ("EE+CS @ Stanford"), which is also shown under the member's name on project pages. So school comes from claims, and school boards start sparse. **Decided:** school comes only from the owner after claiming (no bio parsing, no inference). School boards fill in as people claim.
-- **Analytics:** PostHog or Vercel Analytics.
+- ~~**Analytics:**~~ Vercel Web Analytics (decided 2026-10-15; `<Analytics />` in the root layout). Page views are free; custom events (search, claim_started, ...) need a paid Vercel plan, so revisit when Phase 4 adds them.
 - **Mobile nav:** bottom tab bar or full-screen menu only.
-- **Domain:** hackladder.com, .dev, or .gg (availability?).
+- ~~**Domain:**~~ **www.hackladder.com** (bought 2026-10-15). The apex hackladder.com redirects to www. Site URL, Supabase auth redirects and the Resend sending domain all use it.
 - ~~**Devpost outreach:** before launch or after.~~ After launch (§9.7).
 - ~~**Season definition:**~~ Aug–Jul academic year (decided 2026-10-14).
 

@@ -140,6 +140,9 @@ needs_db = pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="needs 
 def conn() -> Iterator[psycopg.Connection[Any]]:
     """A connection whose changes are rolled back after the test."""
     with psycopg.connect(os.environ["DATABASE_URL"]) as c:
+        # Open the transaction now: code under test that uses conn.transaction() then gets a
+        # savepoint inside it, instead of committing its own top-level transaction.
+        c.execute("select 1")
         try:
             yield c
         finally:

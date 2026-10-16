@@ -5,24 +5,28 @@ from __future__ import annotations
 import csv
 import json
 import logging
-import os
-import re
 import sys
 from collections.abc import Iterator
+from dataclasses import asdict
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
 import psycopg
 import typer
-from dotenv import load_dotenv
 
+from hackladder import db
 from hackladder.config import load_rating_config, seed_prize_rules
 from hackladder.crawl.cache import CachedFetcher, iter_cached_pages
 from hackladder.crawl.check import CheckedProject, CheckReport, normalize_event_url, run_check
+from hackladder.crawl.events import crawl_events
 from hackladder.crawl.http import PoliteClient
+from hackladder.crawl.listing import crawl_list
+from hackladder.mlh import apply_matches, crawl_mlh_seasons
 from hackladder.parse import ParseError, ProjectPage, parse_project
 from hackladder.parse.common import host_of
 from hackladder.prizes import CONFIG_PATH, TierConfig, TierConfigError, load_tier_config, review
+from hackladder.rate.run import run_ratings
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="HackLadder data pipeline.")
 
@@ -176,26 +180,10 @@ app.add_typer(config_app, name="config")
 
 
 def _connect() -> psycopg.Connection[Any]:
-    load_dotenv(Path(".env"))
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        raise typer.BadParameter(
-            "DATABASE_URL is not set. Add it to pipeline/.env (see .env.example).", param_hint="DATABASE_URL"
-        )
     try:
-        return psycopg.connect(url)
-    except psycopg.OperationalError as exc:
-        hint = ""
-        if re.search(r"@db\.[a-z0-9]+\.supabase\.co", url):
-            # Supabase's direct host is IPv6-only; most home and campus networks need the pooler.
-            hint = (
-                "\nThis is Supabase's direct connection, which only works over IPv6. Use the Session pooler"
-                " string instead (Dashboard > Connect > Session pooler):"
-                " postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
-            )
-        raise typer.BadParameter(
-            f"Couldn't connect to the database: {exc}{hint}", param_hint="DATABASE_URL"
-        ) from exc
+        return db.connect()
+    except db.DatabaseConfigError as exc:
+        raise typer.BadParameter(str(exc), param_hint="DATABASE_URL") from exc
 
 
 @config_app.command("seed")
@@ -219,4 +207,108 @@ def config_show() -> None:
         config = load_rating_config(conn)
     typer.echo(
         json.dumps(config.snapshot() | {"rated_hackathon_ids": len(config.rated_hackathon_ids)}, indent=2)
+    )
+
+
+crawl_app = typer.Typer(no_args_is_help=True, help="Fetch pages from Devpost politely (§6.2) and load them.")
+app.add_typer(crawl_app, name="crawl")
+mlh_app = typer.Typer(no_args_is_help=True, help="MLH member events: crawl seasons, match them to Devpost.")
+app.add_typer(mlh_app, name="mlh")
+
+
+@crawl_app.command("list")
+def crawl_list_command(
+    incremental: Annotated[
+        bool, typer.Option(help="Stop once a whole page ended more than --settle-days ago (weekly runs).")
+    ] = False,
+    settle_days: Annotated[int, typer.Option(help="Incremental cutoff: events this old have settled.")] = 60,
+    max_pages: Annotated[int | None, typer.Option(help="Stop after this many pages.")] = None,
+    restart: Annotated[
+        bool, typer.Option(help="Ignore the checkpoint and start a full crawl at page 1.")
+    ] = False,
+    cache_dir: CacheDir = DEFAULT_CACHE,
+) -> None:
+    """Load the Devpost hackathon list into `hackathons` (about 1,550 pages for a full crawl)."""
+    with _connect() as conn, PoliteClient() as client:
+        client.load_robots()
+        with db.pipeline_run(conn, "crawl list" + (" --incremental" if incremental else "")) as stats:
+            result = crawl_list(
+                client, conn, cache_dir,
+                mode="incremental" if incremental else "full",
+                cutoff=date.today() - timedelta(days=settle_days) if incremental else None,
+                max_pages=max_pages, restart=restart,
+            )  # fmt: skip
+            stats.pages_fetched = client.requests_made
+            stats.events_added = result.inserted
+            stats.summary = asdict(result)
+    typer.echo(
+        f"pages {result.first_page}-{result.first_page + max(result.pages - 1, 0)}:"
+        f" {result.hackathons} hackathons ({result.inserted} new, {result.updated} updated)."
+        f" Stopped: {result.stopped}."
+    )
+
+
+@mlh_app.command("crawl")
+def mlh_crawl_command(
+    first_season: Annotated[int, typer.Option(help="Oldest MLH season to fetch.")] = 2015,
+    last_season: Annotated[int | None, typer.Option(help="Newest season (default: next year's).")] = None,
+    cache_dir: CacheDir = DEFAULT_CACHE,
+) -> None:
+    """Fetch every MLH season schedule into `mlh_events` (about 10 pages per season)."""
+    last = last_season or date.today().year + 1
+    with _connect() as conn, PoliteClient() as client, db.pipeline_run(conn, "mlh crawl") as stats:
+        result = crawl_mlh_seasons(client, conn, cache_dir, range(first_season, last + 1))
+        stats.pages_fetched = client.requests_made
+        stats.failures = len(result.failures)
+        stats.summary = asdict(result)
+    for season, n in sorted(result.events_by_season.items()):
+        typer.echo(f"  season {season}: {n} events")
+    typer.echo(f"{sum(result.events_by_season.values())} MLH events from {result.pages} pages.")
+    for failure in result.failures:
+        typer.echo(f"  failed: {failure}")
+
+
+@mlh_app.command("match")
+def mlh_match_command() -> None:
+    """Match MLH events to Devpost hackathons; uncertain ones go to /admin/mlh for review."""
+    with _connect() as conn, db.pipeline_run(conn, "mlh match") as stats:
+        counts = apply_matches(conn)
+        stats.summary = dict(counts)
+    typer.echo(
+        ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "no MLH events yet; run `hl mlh crawl`"
+    )
+
+
+@crawl_app.command("events")
+def crawl_events_command(
+    slug: Annotated[list[str] | None, typer.Option(help="Only these events (Devpost subdomains).")] = None,
+    limit: Annotated[int | None, typer.Option(help="Stop after this many events.")] = None,
+    cache_dir: CacheDir = DEFAULT_CACHE,
+) -> None:
+    """Crawl galleries and project pages for in-scope events, newest first (resumable)."""
+    with _connect() as conn, PoliteClient() as client:
+        client.load_robots()
+        tiers = load_rating_config(conn).prize_tiers
+        with db.pipeline_run(conn, "crawl events") as stats:
+            fetcher = CachedFetcher(client, cache_dir)
+            result = crawl_events(fetcher, conn, tiers, slugs=slug, limit=limit)
+            stats.pages_fetched = client.requests_made
+            stats.failures = len(result.failures)
+            stats.summary = asdict(result)
+    typer.echo(
+        f"{result.events} events, {result.projects} projects loaded; {result.skipped} already done;"
+        f" {len(result.failures)} failed; {client.requests_made} requests, {fetcher.hits} cache hits."
+    )
+    for failure in result.failures:
+        typer.echo(f"  failed: {failure}")
+
+
+@app.command()
+def rate() -> None:
+    """Rebuild all ratings from scratch with the current config and publish them."""
+    with _connect() as conn:
+        summary = run_ratings(conn)
+    typer.echo(
+        f"Rated {summary.people} people ({summary.ranked} ranked) across {summary.events} events;"
+        f" {summary.series} series, {summary.duos} duos; event noise {summary.noise:.2f}."
     )

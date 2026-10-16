@@ -32,3 +32,12 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run hl rate
+      # Refresh the cached public pages now rather than within the hour (§10). Skipped until the
+      # REVALIDATE_SECRET secret is set (same value as the Vercel env var).
+      - name: Revalidate the site
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+        run: |
+          if [ -n "$REVALIDATE_SECRET" ]; then
+            curl -fsS -X POST https://www.hackladder.com/api/revalidate -H "Authorization: Bearer $REVALIDATE_SECRET"
+          fi

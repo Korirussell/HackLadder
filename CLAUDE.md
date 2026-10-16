@@ -624,7 +624,7 @@ Work top to bottom. Check items off here as they're done.
 - [x] Monorepo scaffold per §5; uv project; Next.js app; CI running lint, typecheck and tests (pipeline, web, database jobs)
 - [x] Supabase project linked; migrations applied to the hosted project (2026-10-15)
 - [x] Design tokens and font in `globals.css` matching `design/reference.html` (kept in sync by `apps/web/tests/tokens.test.ts`)
-- [ ] Design tokens for all four themes, both font families, and the no-flash theme script in `globals.css` and the root layout, matching the redesigned `design/reference.html`
+- [x] Design tokens for all four themes, both font families, and the no-flash theme script in `globals.css` and the root layout, matching the redesigned `design/reference.html` (kept in sync by `tests/tokens.test.ts`)
 
 ### Phase 1: Data (the hard part)
 - [x] Save real fixtures: list API page, 3 galleries (big, small, multi-page), 10 project pages (winners, non-winners, multi-event submissions, solo teams), 3 user pages
@@ -645,13 +645,16 @@ Work top to bottom. Check items off here as they're done.
 - [ ] Backfill run plus spot-check report
 
 ### Phase 2: Site core
-- [ ] OS chrome: menu bar with timecode countdown, desktop icons, claim button, window component, dock with theme switcher, warped-grid wallpaper, mobile bottom bar
-- [ ] Home, `/hackers`, `/h/[slug]`, `/schools`, `/s/[slug]`, `/events`, `/e/[slug]`, `/series/[slug]`, `/duos`, `/how-ratings-work`
-- [ ] Search RPC plus instant dropdown
-- [ ] OG share cards
+- [x] OS chrome: menu bar with timecode countdown, desktop icons, claim button, window component, dock with theme switcher, warped-grid wallpaper, boot screen, mobile bottom bar
+- [x] Home, `/hackers`, `/h/[slug]`, `/schools`, `/s/[slug]`, `/events`, `/e/[slug]`, `/series/[slug]`, `/duos`, `/how-ratings-work`, `/search`, `/upcoming` (schedule only), sitemap, robots
+- [ ] Season boards on `/hackers` (biggest climb, peak rating per Aug–Jul season, §8.7)
+- [x] Search RPC plus instant dropdown (⌘K)
+- [x] OG share cards (`/og/h|s|e/[slug]`, profile theme for claimed hackers)
 
 ### Phase 3: Claim and trust
-- [ ] Auth, claim flow, merges, `/me`, `/remove`, corrections plus a minimal admin review page
+- [x] Auth, claim flow, merges, `/me` (with the profile theme picker), `/remove`, corrections plus `/admin/corrections`
+- [ ] Pipeline applies approved `remove_project` / `add_to_project` corrections in `hl rate` (today an admin fixes the input by hand)
+- [ ] GitHub OAuth sign-in (needs the provider enabled in Supabase)
 - [ ] Emails: claim confirmation, weekly "you moved" digest (opt-in)
 
 ### Phase 4: Launch
@@ -686,6 +689,7 @@ uv run hl mlh crawl && uv run hl mlh match    # MLH seasons, then match them to 
 uv run hl crawl events [--limit N] [--slug S]  # galleries + projects for in-scope events, resumable
 uv run hl parse --all
 uv run hl rate                                 # replay, analyze, write *_next, publish_gold(), refresh search
+curl -X POST $SITE/api/revalidate -H "Authorization: Bearer $REVALIDATE_SECRET"  # refresh cached pages (the workflows do this)
 
 # prototype (reference only, SQLite)
 cd pipeline/prototype && python simulate.py
@@ -740,7 +744,11 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-16: The logo is the flat H-ladder mark (a slanted H with two rungs and an orange top rung), refined to big-tech standards with mono, reverse, avatar and app-icon variants. Brown wood and pixel-art versions were explored and rejected.
 - 2026-10-16: Reskinned as "HackLadder OS": Brand Appart structure plus a clean Japanese-tech desktop (menu bar, windows, timecodes, warped grid), inspired by 109ichiki.com. Claimed profiles choose their profile and share-card theme, as a claim perk.
 - 2026-10-16: Themes are Paper (default light), Sumi (default dark), Sakura and Midnight, in that order. Japanese labels were removed. The boot screen stays, reading "hackladder" and "loading...", never "os".
-- 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN.
+- 2026-10-16: Every public page reads through one security-definer SQL function (`ladder`, `hacker_page`, `event_page`, ...; migration `20261016000400`) with a session-less client, cached with `"use cache"` under the `ratings` tag and revalidated by `/api/revalidate` after each rating run (hourly lifetime as the fallback). Why: the privacy rules stay in the database in one place, and cached reads can't depend on cookies.
+- 2026-10-16: Claim and "remove me" bio codes are checked inside Postgres (`verify_claim`, `verify_removal`) with the `http` extension, which fetches `devpost.com/<username>` once and only reads `#portfolio-user-bio`. Why: a check in the web app could be skipped by calling the database directly, and this needs no service-role key in Vercel. 5 checks per hour per user or username.
+- 2026-10-16: Verifying a second Devpost account while you already own a profile merges it: the account moves to your person and the emptied person is deleted (§7.5). Schools an owner can't find arrive as `set_school` corrections; approving one creates or reuses the school.
+- 2026-10-16: The rating chart is server-rendered SVG (with a table alternative), not Recharts. Why: it's one line and a fill, and the profile ships no chart JavaScript (§12 bundle budget). Event pages show field strength in μ, not as a rating, because `field_mean`/`top_field` are mean final μ (§8.2).
+- 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN, and optionally REVALIDATE_SECRET (also a GitHub Actions secret).
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 
 ---

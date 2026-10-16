@@ -547,7 +547,7 @@ as $$
 declare
   res extensions.http_response;
 begin
-  if p_username !~ '^[A-Za-z0-9_.-]{1,64}$' then
+  if p_username !~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' then
     raise exception 'That isn''t a Devpost username.';
   end if;
   perform extensions.http_set_curlopt('CURLOPT_TIMEOUT', '10');

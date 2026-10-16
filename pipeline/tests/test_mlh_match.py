@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from hackladder.mlh_match import DevpostRow, MlhRow, match_all, match_one, normalize
+from hackladder.mlh_match import DevpostRow, MlhRow, match_all, match_one, name_match, normalize
 
 
 @pytest.mark.parametrize(
@@ -85,3 +85,48 @@ def test_match_all_uses_neighbouring_weeks() -> None:
     decisions = {d.mlh_event_id: d for d in match_all(events, FIELD)}
     assert decisions[1].hackathon_id == 10
     assert decisions[2].hackathon_id == 11
+
+
+@pytest.mark.parametrize(
+    ("mlh_name", "devpost_title", "expected"),
+    [
+        ("HackSMU V", "HackSMU V", "exact"),
+        ("Local Hack Day: Learn (2022)", "Local Hack Day: Learn 2022", "exact"),
+        ("MadHacks", "MadHacks Fall 2023", "contains"),
+        ("Sheridan Hackville", "Hackville", "contains"),
+        # Only generic words in common: "fall" doesn't identify an event.
+        ("305 HACKATHON | FALL EDITION", "STEM Connect Hackathon Fall 2025", "fuzzy"),
+        ("SheHacks", "SF Hacks 2022", "fuzzy"),
+    ],
+)
+def test_name_match(mlh_name: str, devpost_title: str, expected: str) -> None:
+    d = dev(devpost_title, "unrelated-slug", OCT_20, 1)
+    assert name_match(mlh(mlh_name, OCT_20, slug="other-slug"), d) == expected
+
+
+def test_a_unique_exact_name_is_auto_despite_a_close_runner_up() -> None:
+    field = [dev("HackCMU 2023", "hackcmu-2023", OCT_20, 30), dev("HackSMU V", "hacksmu-v", OCT_20, 31)]
+    d = match_one(mlh("HackSMU V", OCT_20), field)
+    assert (d.hackathon_id, d.status) == (31, "auto")
+
+
+def test_decisions_carry_the_top_candidates() -> None:
+    field = [
+        dev("MadHacks Fall 2023", "madhacks-fall-2023", OCT_20, 40),
+        dev("MadHacks Spring", "madhacks-spring", date(2024, 10, 22), 41),
+        dev("MathHacks", "mathhacks", date(2024, 10, 19), 42),
+        dev("Unrelated Jam", "unrelated-jam", OCT_20, 43),
+        dev("MadHacks", "madhacks", date(2024, 11, 20), 44),  # a month away: not a candidate
+    ]
+    d = match_one(mlh("MadHacks", OCT_20), field)
+    assert d.status == "suggested"
+    assert [c.hackathon_id for c in d.candidates] == [40, 41, 42]
+    best = d.candidates[0]
+    assert (best.slug, best.days, best.name_match) == ("madhacks-fall-2023", 0, "contains")
+    assert d.candidates[1].days == 2
+
+
+def test_unmatched_events_still_list_nearby_events() -> None:
+    d = match_one(mlh("Quiet Event", OCT_20), [dev("Loud Jam", "loud-jam", OCT_20, 50)])
+    assert d.status == "unmatched"
+    assert [c.slug for c in d.candidates] == ["loud-jam"]

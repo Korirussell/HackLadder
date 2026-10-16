@@ -644,6 +644,7 @@ export type Database = {
       }
       mlh_event_matches: {
         Row: {
+          candidates: Json
           hackathon_id: number | null
           mlh_event_id: number
           note: string | null
@@ -653,6 +654,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          candidates?: Json
           hackathon_id?: number | null
           mlh_event_id: number
           note?: string | null
@@ -662,6 +664,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          candidates?: Json
           hackathon_id?: number | null
           mlh_event_id?: number
           note?: string | null
@@ -1703,6 +1706,7 @@ export type Database = {
       }
       mlh_match_review: {
         Row: {
+          candidates: Json | null
           ends_at: string | null
           format: string | null
           hackathon_ends_on: string | null

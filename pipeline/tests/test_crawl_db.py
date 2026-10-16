@@ -153,6 +153,12 @@ def test_mlh_crawl_and_matching(conn: psycopg.Connection[Any], tmp_path: Path) -
         "select is_mlh, is_high_school from public.hackathons where slug = 'jamhacks-9'"
     ).fetchone()
     assert jam == (True, True)  # the trigger applied MLH membership and the high-school flag
+    shown = conn.execute(
+        "select candidates from public.mlh_match_review where mlh_name = 'JAMHacks 9'"
+    ).fetchone()
+    assert shown is not None
+    assert shown[0][0]["slug"] == "jamhacks-9"
+    assert shown[0][0]["name_match"] == "exact"
 
     # An admin rejects the match; re-running matching must not undo that.
     conn.execute(

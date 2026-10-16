@@ -16,15 +16,25 @@ from typing import Literal
 from hackladder.parse.common import host_of
 
 Status = Literal["auto", "suggested", "unmatched"]
+NameMatch = Literal["exact", "contains", "fuzzy"]
 
 DATE_WINDOW_DAYS = 3  # Devpost's deadline is usually the MLH end date, give or take a day or two
 AUTO_SCORE = 0.85
 SUGGEST_SCORE = 0.5
 AUTO_MARGIN = 0.15  # the best candidate must beat the runner-up by this much to auto-accept
+MAX_CANDIDATES = 3  # shown on /admin/mlh so a wrong suggestion is one click to fix
 
 _YEARS = re.compile(r"\b(19|20)\d{2}\b|'\d{2}\b")
 _EDITION = re.compile(r"\b(\d+(\.\d+)?|[ivxlc]+|(\d+)(st|nd|rd|th))\b")
 _NOISE = re.compile(r"\b(the|hackathon|edition|annual|presents?)\b")
+# Words that don't identify an event on their own: "Fall" alone mustn't make "305 Hackathon: Fall
+# Edition" contain "STEM Connect Hackathon Fall".
+_GENERIC = frozenset({
+    "hack", "hacks", "hacker", "hackers", "fall", "spring", "summer", "winter", "day", "week",
+    "weekend", "local", "global", "online", "virtual", "january", "february", "march", "april",
+    "may", "june", "july", "august", "september", "october", "november", "december",
+})  # fmt: skip
+_RANK: dict[NameMatch, int] = {"exact": 0, "contains": 1, "fuzzy": 2}
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,12 +55,24 @@ class DevpostRow:
 
 
 @dataclass(frozen=True, slots=True)
+class Candidate:
+    hackathon_id: int
+    slug: str
+    title: str
+    ends_on: date
+    score: float
+    days: int  # |Devpost deadline - MLH end|
+    name_match: NameMatch
+
+
+@dataclass(frozen=True, slots=True)
 class MatchDecision:
     mlh_event_id: int
     hackathon_id: int | None
     score: float | None
     status: Status
     note: str
+    candidates: tuple[Candidate, ...] = ()
 
 
 def normalize(name: str) -> str:
@@ -76,6 +98,21 @@ def _similarity(a: str, b: str) -> float:
     return max(ratio, 0.9 * contained)
 
 
+def name_match(mlh: MlhRow, dev: DevpostRow) -> NameMatch:
+    """How the names relate. "contains": every word of the shorter name is in the longer one
+    ("MadHacks" / "MadHacks Fall 2023"), and at least one of them identifies the event."""
+    if mlh.website_url and host_of(mlh.website_url) == f"{dev.slug}.devpost.com":
+        return "exact"
+    pairs = [(normalize(mlh.name), normalize(dev.title)), (normalize(mlh.slug), normalize(dev.slug))]
+    if any(a and a == b for a, b in pairs):
+        return "exact"
+    for a, b in pairs:
+        short, long = sorted((set(a.split()), set(b.split())), key=len)
+        if short and short <= long and short - _GENERIC:
+            return "contains"
+    return "fuzzy"
+
+
 def score(mlh: MlhRow, dev: DevpostRow) -> tuple[float, str]:
     if mlh.website_url and host_of(mlh.website_url) == f"{dev.slug}.devpost.com":
         return 1.0, "MLH links to this Devpost page"
@@ -85,27 +122,36 @@ def score(mlh: MlhRow, dev: DevpostRow) -> tuple[float, str]:
 
 
 def match_one(mlh: MlhRow, candidates: Sequence[DevpostRow]) -> MatchDecision:
-    nearby = [
-        d
-        for d in candidates
-        if d.ends_on is not None and abs((d.ends_on - mlh.ends_on).days) <= DATE_WINDOW_DAYS
-    ]
-    scored = sorted(((*score(mlh, d), d) for d in nearby), key=lambda s: s[0], reverse=True)
-    if not scored or scored[0][0] < SUGGEST_SCORE:
-        if scored:
-            note = f"no close name; best was {scored[0][2].slug} at {scored[0][0]:.2f}"
+    ranked: list[tuple[Candidate, str]] = []
+    for d in candidates:
+        if d.ends_on is None or abs((d.ends_on - mlh.ends_on).days) > DATE_WINDOW_DAYS:
+            continue
+        sc, how = score(mlh, d)
+        days = abs((d.ends_on - mlh.ends_on).days)
+        c = Candidate(d.id, d.slug, d.title, d.ends_on, round(sc, 3), days, name_match(mlh, d))
+        ranked.append((c, how))
+    # How the names relate comes before the fuzzy score: "MadHacks" is "MadHacks Fall 2023", not
+    # the more similar-looking "MathHacks". Then the closest deadline breaks ties.
+    ranked.sort(key=lambda r: (_RANK[r[0].name_match], -r[0].score, r[0].days))
+    shown = tuple(c for c, _ in ranked[:MAX_CANDIDATES])
+    if not ranked or ranked[0][0].score < SUGGEST_SCORE:
+        if ranked:
+            note = f"no close name; best was {ranked[0][0].slug} at {ranked[0][0].score:.2f}"
         else:
             note = f"no Devpost event within {DATE_WINDOW_DAYS} days"
-        return MatchDecision(mlh.id, None, None, "unmatched", note)
-    top_score, how, top = scored[0]
-    runner_up = scored[1][0] if len(scored) > 1 else 0.0
-    days = abs((top.ends_on or mlh.ends_on) - mlh.ends_on).days
-    note = f"{how} {top_score:.2f}, deadline {days} day(s) from MLH end"
-    if top_score >= AUTO_SCORE and top_score - runner_up >= AUTO_MARGIN:
-        return MatchDecision(mlh.id, top.id, round(top_score, 3), "auto", note)
-    if len(scored) > 1:
-        note += f"; runner-up {scored[1][2].slug} at {runner_up:.2f}"
-    return MatchDecision(mlh.id, top.id, round(top_score, 3), "suggested", note)
+        return MatchDecision(mlh.id, None, None, "unmatched", note, shown)
+    top, how = ranked[0]
+    others = [c for c, _ in ranked[1:]]
+    runner_up = max((c.score for c in others), default=0.0)
+    note = f"{how} {top.score:.2f}, deadline {top.days} day(s) from MLH end"
+    # An exact name no other candidate shares is a clear winner even when a similar name is close
+    # behind ("HackSMU V" vs "HackCMU 2023").
+    unique_exact = top.name_match == "exact" and all(c.name_match != "exact" for c in others)
+    if unique_exact or (top.score >= AUTO_SCORE and top.score - runner_up >= AUTO_MARGIN):
+        return MatchDecision(mlh.id, top.hackathon_id, top.score, "auto", note, shown)
+    if others:
+        note += f"; runner-up {others[0].slug} at {others[0].score:.2f}"
+    return MatchDecision(mlh.id, top.hackathon_id, top.score, "suggested", note, shown)
 
 
 def match_all(mlh_events: Sequence[MlhRow], hackathons: Sequence[DevpostRow]) -> list[MatchDecision]:

@@ -6,12 +6,14 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
+
+from psycopg.types.json import Jsonb
 
 from hackladder.crawl.cache import store_raw
 from hackladder.crawl.http import FetchFailedError, FetchResult
 from hackladder.db import Connection, record_failure, record_raw_page
-from hackladder.mlh_match import DevpostRow, MlhRow, match_all
+from hackladder.mlh_match import Candidate, DevpostRow, MlhRow, match_all
 from hackladder.parse import MlhEvent, parse_mlh_season
 
 SEASON_URL = "https://mlh.io/seasons/{season}/events?page={page}"
@@ -110,6 +112,14 @@ def _crawl_season(
     return len(seen)
 
 
+def _candidate_json(c: Candidate) -> dict[str, Any]:
+    """The shape `/admin/mlh` reads (apps/web/lib/mlh-review.ts)."""
+    return {
+        "hackathon_id": c.hackathon_id, "slug": c.slug, "title": c.title,
+        "ends_on": c.ends_on.isoformat(), "score": c.score, "days": c.days, "name_match": c.name_match,
+    }  # fmt: skip
+
+
 def apply_matches(conn: Connection) -> Counter[str]:
     """Match every MLH event to a Devpost hackathon and store the decision.
 
@@ -133,13 +143,16 @@ def apply_matches(conn: Connection) -> Counter[str]:
     with conn.cursor() as cur:
         for d in match_all(mlh_rows, dev_rows):
             cur.execute(
-                "insert into public.mlh_event_matches (mlh_event_id, hackathon_id, score, status, note)"
-                " values (%s, %s, %s, %s, %s)"
+                "insert into public.mlh_event_matches"
+                " (mlh_event_id, hackathon_id, score, status, note, candidates)"
+                " values (%s, %s, %s, %s, %s, %s)"
                 " on conflict (mlh_event_id) do update set hackathon_id = excluded.hackathon_id,"
-                " score = excluded.score, status = excluded.status, note = excluded.note"
+                " score = excluded.score, status = excluded.status, note = excluded.note,"
+                " candidates = excluded.candidates"
                 " where mlh_event_matches.status not in ('confirmed', 'rejected')",
-                (d.mlh_event_id, d.hackathon_id, d.score, d.status, d.note),
-            )
+                (d.mlh_event_id, d.hackathon_id, d.score, d.status, d.note,
+                 Jsonb([_candidate_json(c) for c in d.candidates])),
+            )  # fmt: skip
             counts[d.status] += 1
     conn.commit()
     return counts

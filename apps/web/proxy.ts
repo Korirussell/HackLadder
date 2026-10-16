@@ -6,6 +6,16 @@ import { type NextRequest, NextResponse } from "next/server";
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // If Supabase falls back to the Site URL (a redirect URL not on its allow list), the sign-in
+  // code lands on the homepage. Send it to the callback so the sign-in still completes.
+  if (request.nextUrl.pathname === "/") {
+    const code = request.nextUrl.searchParams.get("code");
+    if (!code) return NextResponse.next();
+    const callback = new URL("/auth/callback", request.nextUrl.origin);
+    callback.searchParams.set("code", code);
+    return NextResponse.redirect(callback);
+  }
+
   let response = NextResponse.next({ request });
   if (!url || !key) return response;
 
@@ -42,5 +52,5 @@ async function refreshSession(
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/sign-in", "/auth/:path*"],
+  matcher: ["/", "/admin/:path*", "/sign-in", "/auth/:path*"],
 };

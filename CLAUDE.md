@@ -81,77 +81,174 @@ Every piece is here because the problem needs it. Don't add infrastructure witho
 
 ## 4. Design system
 
-**The design reference is `design/reference.html`. Open it in a browser before building any page.** It's a static mock of the homepage, and it defines the tokens, type, layout and components below. If this section and the reference disagree, the reference wins; then update this section.
+**The design reference is `design/reference.html`. Open it in a browser before building any page.** It has three pages (home, profile, event), switched from the dock, and the four shipped themes. If this section and the reference disagree, the reference wins; then update this section.
 
-The style is heavily inspired by brandappart.com: a warm paper background, enormous tight black display type, a single orange accent, a fixed left icon rail, generous space and very little chrome. Take inspiration only. Never copy their logo, copy, images or the © mark; our signature mark is the circled up-chevron.
+**The style in one line:** Brand Appart's structure, reskinned as a clean Japanese-tech desktop OS.
 
-### 4.1 Tokens
+- **From brandappart.com:** enormous tight display type, a fixed left navigation, a fixed "Claim your profile" button, big section headlines and a closing line.
+- **From 109ichiki.com:** a menu bar, windows with title and status bars, desktop icons, timecodes, a warped grid wallpaper, a boot screen and stickers. Japanese labels were tried and removed (§15).
 
-```css
---paper:    #F6F3EC;  /* page background (never pure white) */
---ink:      #17140F;  /* text, primary buttons, rules under section heads */
---signal:   #FF5B14;  /* THE accent. Mark, rating went up, focus rings. Nothing else. */
---tile:     #ECE7DE;  /* rail tiles, inputs, event cards, quiet surfaces */
---graphite: #6F685E;  /* secondary text, rating went down */
---rule:     #DDD6CA;  /* hairlines between rows */
-```
+**Retro in idea, modern in execution.** Nothing is pixelated, nothing is skeuomorphic, and there are no fake bevels. Take inspiration only: never copy either site's assets, copy or marks.
 
-- **Signal orange is rationed.** It appears on the logo mark, upward rating movement, focus rings and at most one other thing per page. If you're reaching for orange to make something "pop", use size or weight instead.
-- Rating up shows in `--signal`; down shows in `--graphite` (never red, because a rating dip isn't an error); unchanged shows `±0` in graphite.
-- **Dark mode: not in v1.** Keep every color as a token so it can be added later.
+Earlier directions are archived:
+- `design/rejected/v1-brandappart.html` (plain Brand Appart look)
+- `design/explorations/themes.html` (all 8 candidate themes, with the removed Japanese labels)
+
+### 4.1 Themes and tokens
+
+Four themes ship, in this order everywhere they're listed (dock, `/me` picker, docs): **Paper, Sumi, Sakura, Midnight**. Every color in the UI comes from these tokens; nothing is hard-coded.
+
+| Token | Paper (default light) | Sumi (default dark) | Sakura | Midnight | Use |
+|---|---|---|---|---|---|
+| `--bg` | `#F2EEE5` | `#171512` | `#ECE8FA` | `#050507` | desktop background |
+| `--grid` | `#DCD5C7` | `#2A2621` | `#D3CBF0` | `#1E1E2A` | warped grid lines |
+| `--win` | `#FFFDF8` | `#211E1A` | `#FFFFFF` | `#0F0F15` | window body |
+| `--chrome` | `#E9E3D8` | `#2A2622` | `#E4DEF8` | `#191922` | title bars, tracks |
+| `--chrome-2` | `#DDD6C9` | `#35302A` | `#D6CDF4` | `#24242F` | inactive window lights |
+| `--ink` | `#17140F` | `#F2EEE5` | `#1B1530` | `#F3F1FA` | text, primary buttons |
+| `--muted` | `#6F685E` | `#A39B8E` | `#6C6488` | `#8E8AA3` | secondary text, rating down |
+| `--line` | `#D6CFC2` | `#3A352E` | `#DCD4F5` | `#26263A` | borders, row rules |
+| `--accent` | `#FF5B14` | `#FF6A26` | `#FF3D7F` | `#FF2E93` | rating up, sticker, close light, featured outline |
+| `--accent-ink` | `#FFFFFF` | `#171512` | `#FFFFFF` | `#0B0B0F` | text on accent |
+| `--select` | `#2747FF` | `#6B85FF` | `#1B1530` | `#9B8CFF` | selected row, active nav, focus ring |
+| `--select-ink` | `#FFFFFF` | `#0E0E12` | `#D4FF3A` | `#0B0B0F` | text on selection |
+| `--rail` / `--rung` | ink / accent | ink / accent | ink / accent | ink / accent | the logo glyph in the menu bar |
+
+**Sumi** is Paper's dark twin: the same warm palette and orange, in ink-wash charcoal. **Midnight** is the high-contrast black-and-fluorescent-pink option.
+
+- **Accent is rationed.** It's used for: rating up, the sticker, the window close light, the featured card outline, the "#1" chip, and the chart's latest point and fill. If you're reaching for accent to make something pop, use size or weight instead.
+- **Selection color is the OS highlight**, used for the selected row, the active menu item, the current desktop icon and focus rings. It is never used for decoration.
+- **Rating changes:** up is shown in `--accent`, down in `--muted` (never red, since a dip isn't an error), and unchanged as `±0` in `--muted`.
+- **Contrast:** every theme must pass WCAG AA for `--ink` and `--muted` on both `--bg` and `--win`. Check Sakura's `--muted` especially.
 
 ### 4.2 Typography
 
-One family: **Bricolage Grotesque** (variable). The personality comes from its axes.
+Two families, each with one job:
 
-| Role | Size | Axes and settings |
+| Family | Job |
+|---|---|
+| **Bricolage Grotesque** (variable: opsz, wdth, wght) | All display and body text. This is the brand voice. |
+| **IBM Plex Mono** | System chrome only: menu bar, window titles, status bars, timecodes, table headers, chips. It's the OS speaking, never content. |
+
+| Role | Size | Settings |
 |---|---|---|
-| Hero display | `clamp(64px, 9.4vw, 164px)`; mobile `17vw` | wght 800, opsz 96, wdth 82, letter-spacing −0.055em, line-height 0.86 |
-| Section display (h2) | `clamp(48px, 6.4vw, 104px)` | same as hero |
-| Rank numerals | 168 / 104 / 64px for #1 / #2–3 / the rest | wght 800, opsz 96, wdth 78, tracking −0.06em |
-| Big stat (odds, rating) | 34–76px | wght 800, wdth 80, tracking −0.05em |
-| Sub-headline | `clamp(22px, 2.2vw, 32px)` | wght 400, tracking −0.02em, line-height 1.22, max-width 22ch |
-| Body | 17px / 1.5 | wght 400, opsz 14 |
-| Small / meta | 14–15px | wght 400–600, `--graphite` |
-| Buttons | 16px | wght 700, sentence case |
+| Hero display | `clamp(64px, 9vw, 156px)`; mobile `16vw` | Bricolage wght 800, opsz 96, wdth 82, tracking −0.055em, line-height 0.86 |
+| Page title (profile or event name) | `clamp(56px, 7.5vw, 128px)` | same |
+| Section display (h2) | `clamp(48px, 6vw, 96px)` | same |
+| Rank numerals | 96px for #1, 44px for the rest; mobile 56 / 32 | wght 800, wdth 78, tracking −0.06em |
+| Big stat (odds) | up to 190px on the event page, 56px on cards | wght 800, wdth 76–78 |
+| Body | 16px / 1.5 | Bricolage wght 400, opsz 14 |
+| System text | 11–12.5px | Plex Mono 400–600 |
 
-- `font-variant-numeric: tabular-nums` globally, so numbers align in tables.
-- **No all-caps labels, no eyebrow labels above headings, no monospace data labels, no "→" appended to buttons or links.**
-- Headlines are statements in sentence case: "The ladder", "School vs school", "Hardest to win".
+`font-variant-numeric: tabular-nums` is set globally. There are no all-caps labels and no "→" appended to buttons.
 
-### 4.3 Layout and chrome
+### 4.3 Layout and chrome (the OS)
 
-- **Fixed left rail** (desktop ≥900px): six 72×72 tiles, radius 16, `--tile` background, icon `--graphite`. Hover or current page inverts to `--ink` background and `--paper` icon, with a tooltip label to the right. The order is Hackers, Schools, Events, Duos, How ratings work, Claim.
-- **Logo** fixed top-left: "Hack / Ladder" stacked, wght 800, wdth 80, 27px, line-height 0.82.
-- **Primary CTA** fixed top-right: black "Claim your profile" button.
-- **Bottom-left:** "Menu" with three dots, which opens a full-screen menu.
-- **Bottom-right:** a live "Next big event: HackGT closes in 2d 04h" countdown, our version of the reference's local clock. Data comes from upcoming events.
-- **Right edge:** a thin vertical scroll-progress line with a ringed dot.
-- **Content column:** max-width 1240px, left padding = rail width + 40px.
-- **Mobile (<900px):** rail, progress line, menu label and countdown are hidden. The logo and CTA become absolutely positioned (not fixed), page gutter is 16px, there's no horizontal scroll, and a bottom tab bar holds the rail's six destinations (**OPEN**: tab bar vs. hamburger).
-- Hero is centered. Everything else is left-aligned. Section heads have the h2 on the left and a short graphite explainer on the right, over a 1px `--ink` rule.
+- **Menu bar** (fixed, 34px, translucent with blur):
+  - Left: the logo glyph and "HackLadder".
+  - Middle: nav items Hackers, Schools, Events, Duos, Method. The active item takes `--select`.
+  - Right: the **countdown in timecode format** `DD:HH:MM:SS` to the next big event, with an accent dot. It replaces Brand Appart's local clock.
+- **Desktop icons** (fixed, left): the Brand Appart rail, reskinned. Each is a 52px rounded tile with a lowercase label under it: hackers, schools, events, duos, profile. The current page's tile takes `--select`.
+- **Claim button:** fixed top-right below the menu bar, in ink.
+- **Windows:** every block of content lives in a window.
+  - The title bar has three lights (the first in accent), a file-style title (`search.app`, `~/ladder`, `rating_history`, `treehacks_2026.mov`) and right-aligned meta.
+  - An optional status bar at the bottom reads like an OS: "1 of 412,880 selected", "page 1 / 8,258".
+  - Radius is 14.
+- **Dock** (fixed, bottom-center): quick page links plus the theme swatches. On mobile it becomes a full-width bottom bar, and it replaces the old **OPEN** question about a tab bar vs. hamburger.
+- **Wallpaper:** a warped grid (fisheye bulge) drawn as thin vector lines in `--grid`, fixed behind everything, redrawn on resize. Smaller warped grids sit inside media-player screens.
+- **Page frame:** max-width 1440, left padding 140px (clearing the icons), and a 16px gutter on mobile with no horizontal scroll.
+- **Alignment:** headlines are left-aligned. Section heads have the h2 on the left and a short `--muted` explainer on the right.
 
 ### 4.4 Components
 
-- **Button:** `--ink` background, `--paper` text, radius 14, padding 14×20, wght 700. A ghost variant is text-only. Labels say exactly what happens: "Claim your profile", "Find me", "Send correction".
-- **Search bar:** `--tile` pill, radius 20, 21px input, inline black "Find me" button. Focus shows a 3px `--signal` ring. Results appear as an instant dropdown (debounced 150ms, top 8: hackers, schools, events, grouped).
-- **Ladder row:** grid of rank numeral / name with school and event count / best win / rating with monthly change. Ranks 1–3 get oversized numerals; this is the page's one bold typographic move.
-- **School row:** rank, name, a thin `--ink` bar on `--tile` track, rating.
-- **Event card:** `--tile` card, radius 24, min-height 340. Title, a meta line, and big "1 in N" odds at the bottom. The #1 card is inverted (ink background).
-- **Profile header:** giant display name (hero scale), rating as a huge numeral, percentile ("Top 3%"), claim status, rating-history chart beneath.
-- **Provisional badge:** hackers with fewer than 3 rated events show a "Provisional" text tag, not a number rank.
-- **Rank tier badge:** next to the big rating number, the hacker's rank tier (§8.7), e.g. "Architect" or "Hall of Fame". Text plus a small mark, no game-style emblems; orange stays rationed.
+- **Search window** (`search.app`): an input with a ⌘K hint and a "Find me" button. Results appear in an instant dropdown (150ms debounce, top 8, grouped as hackers, schools, events). Focus shows a `--select` ring.
+- **File-list table:** this is how leaderboards are shown.
+  - Mono column headers.
+  - The #1 row is shown as the *selected* row (`--select`) with a 96px numeral.
+  - The rating column is in mono with the monthly change beneath it.
+  - The status bar shows the selection and page.
+- **Bar list** (schools): rank, name, a 6px track and a value.
+- **Media-player card** (events): a `.mov` title, a screen with a mini warped grid and big "1 in N" odds, the title, a meta line, and transport controls (play button, timecode, scrub bar). The featured card gets a 2px accent outline.
+- **Event page:**
+  - A big screen window with the odds.
+  - A **timeline track** (kickoff, judging, winners) with timecode ticks.
+  - A `field` properties window.
+  - A `winners` podium window.
+- **Profile page:**
+  - Giant name, then chips: rank (accent), percentile, school, Devpost handle, claimed.
+  - `rating_history`: a stats row plus a line chart with an accent area fill and the latest point marked.
+  - `event_log`: date, event, placement and change, in mono.
+  - `properties` and `frequent_teammates` windows, then the share and correction buttons.
+- **Sticker:** a round accent badge, rotated −12°, used for announcements ("Season 2026"). One per page at most.
+- **Chips:** mono, pill-shaped. Only the most important chip uses the accent.
+- **Provisional:** hackers with fewer than 3 rated events show a "Provisional" chip in place of a rank.
+- **Rank tier badge:** next to the rating, the hacker's rank tier (§8.7), e.g. "Architect" or "Hall of Fame", as a chip. Text only, no game-style emblems; accent stays rationed.
 - **Empty states** say what to do: "No results for 'kori r'. Try your Devpost username."
 
 ### 4.5 Motion
 
-- **One orchestrated moment:** the hero headline rises line by line and the circled mark spins in (see the reference). Nothing else animates on load. No fade-up on scroll for sections.
-- Motion that answers an action is welcome: the search dropdown opening, a claim succeeding, a rating counter ticking when a profile loads.
+- **One orchestrated moment: the boot screen.** On the first visit per session, a centered panel shows `hackladder` on the left and `loading... 0%` on the right, a thin accent progress bar, and `412,880 hackers` / `12,400 hackathons` (live counts) beneath. It runs about 1 second, then fades out.
+  - Never call it an "os" in the copy.
+  - Never show it twice in one session (track with `sessionStorage`, wrapped in try/catch).
+  - Skip it under `prefers-reduced-motion`.
+  - It must never delay real content: render the page underneath, and the boot screen only covers it.
+- Nothing else animates on load. No scroll-triggered entrances.
+- **Live elements:** the menu-bar countdown ticks every second.
+- Motion that answers an action is welcome: the search dropdown, a window "opening" when a row is clicked, a claim succeeding, a rating counter ticking up on profile load.
 - Respect `prefers-reduced-motion` everywhere.
 
 ### 4.6 Copy voice
 
-Plain, confident, a little competitive. "Every hacker who's won, ranked." "You're probably already on here." Errors explain what happened and how to fix it, and never apologize. Never say "Elo" in UI copy, because it isn't Elo. Say "rating". The methodology page explains the model.
+The voice is plain, confident and a little competitive: "Every hacker who's won, ranked." "You're probably already on here." Errors explain how to fix the problem and never apologize. Never say "Elo" in UI copy; say "rating". All UI text is in English; there are no Japanese labels.
+
+### 4.7 Theme behavior
+
+- **First visit:** follow the device. Light mode gets **Paper**; dark mode gets **Sumi**.
+- **Switching:** the dock swatches switch the theme. The choice is saved in `localStorage` (`hl-theme`) as a per-viewer convenience, wrapped in try/catch. A signed-in user's choice also saves to their account (`people.ui_theme`) so it follows them across devices.
+- **Profile themes (claim perk):** a claimed hacker picks a theme for their **profile page and share card** (`people.profile_theme`).
+  - Visitors see that profile in the owner's theme. The menu bar shows a small "theme: Sakura" chip and a "use mine" toggle that switches back to the viewer's own theme.
+  - Unclaimed profiles render in the viewer's theme.
+- **OG share cards** (`/og/h/[slug]`) render in the profile's theme. Unclaimed profiles use Paper.
+- **Implementation:** set `data-theme` on `<html>` before first paint, using a tiny inline script in `<head>`, to avoid a flash of the wrong theme. Each theme is one CSS block of the tokens in §4.1. Adding a theme later means adding one block, one swatch and one OG palette; the archived candidates (Washi, Platinum, Metro, Matcha) are ready in `design/explorations/themes.html`.
+
+### 4.8 Logo: the H-ladder mark
+
+The mark is a slanted H drawn as a two-rung ladder, with the top rung in signal orange. It should be as simple and rigid as a big-tech mark: one shape, two colors, and it still works in one color. `design/logo/brand.html` shows every approved use.
+
+**Construction** (`design/logo/mark.py` generates every file, so edit the generator, never the SVGs). On a 100-unit grid, before a 12° forward skew around the center:
+
+- **Rails:** 19 × 84 at x=20 and x=61, corner radius 3.
+- **Rungs:** 24 × 12, tucked 1 unit into each rail. The top rung sits at y=24 in `--signal`; the crossbar sits at y=54 in ink.
+- **Ladder read:** the rails run past both rungs at the top and bottom. That overrun is what makes it a ladder and not just an H.
+
+**Files:**
+
+| File | Use |
+|---|---|
+| `mark.svg` | Primary: ink rails, orange top rung |
+| `mark-reverse.svg` | On dark backgrounds |
+| `mark-mono.svg` | One color (print, embossing, single-color contexts) |
+| `avatar-ink.svg` | Ink circle; GitHub, X, Discord, social avatars |
+| `avatar-signal.svg` | Orange circle with an ink top rung; alternate avatar |
+| `app-icon.svg` | Ink rounded square (radius 22.5%); PWA and app icons |
+| `favicon.svg` | App icon with a larger glyph, for 16px |
+
+**Lockup:** the mark followed by the "HackLadder" wordmark in Bricolage Grotesque (wght 800, wdth 82, −0.05em tracking). Mark height is about 1.4× the wordmark's cap height, with a gap of about 0.2× the mark height. In the site header the wordmark is stacked ("Hack / Ladder") next to a 48px mark.
+
+**Rules:**
+- The orange top rung is the only orange in the mark. Never recolor the rails.
+- **In-site exception:** the small glyph in the menu bar uses the theme tokens `--rail` and `--rung`, so its top rung matches the theme accent (orange in Paper and Sumi, pink in Sakura and Midnight). Everywhere else (logo files, favicon, app icon, social avatars, OG cards) uses the official orange.
+- Minimum size is 16px (tested).
+- Clear space around the mark is at least one rail width.
+
+**Don't:**
+- add rungs
+- change the slant
+- outline it, put it on a gradient, or add shadows
+- put it inside headlines (it reads as a stray letter)
+- redraw it with a font glyph
+
+Rejected explorations, with the reasons each was rejected, are in `design/logo/rejected/`: brown wood (too illustrative), pixel art (too retro), and converging or stepped rails (read as an "A" or as broken).
 
 ---
 
@@ -161,7 +258,10 @@ Plain, confident, a little competitive. "Every hacker who's won, ranked." "You'r
 hackladder/
 ├── CLAUDE.md                  ← this file
 ├── design/
-│   └── reference.html         ← visual source of truth
+│   ├── reference.html         ← visual source of truth (4 themes, 3 pages)
+│   ├── logo/                  ← mark.py generator + SVGs; brand.html shows approved uses
+│   ├── explorations/          ← themes.html: all 8 candidate themes
+│   └── rejected/              ← earlier directions, kept for reference
 ├── apps/
 │   └── web/                   ← Next.js app
 │       ├── app/
@@ -332,7 +432,7 @@ Migrations live in `supabase/migrations/`. Everything below is the target. The p
 - `projects(id, source, source_id /*slug*/, hackathon_id, title, tagline, is_winner, built_with text[], description text)`
 - `prizes_won(project_id, prize_name, tier smallint)`
 - `accounts(id, source, source_id /*devpost username*/, display_name, school_raw, location_raw, person_id → people)`. One row per Devpost account.
-- `people(id, slug, display_name, school_id → schools, claimed_by → auth.users, claimed_at, hidden bool, linkedin_url, github_url, website_url, bio, open_to_recruiters bool)`. One row per human. Entity resolution maps accounts to people (§7.5).
+- `people(id, slug, display_name, school_id → schools, claimed_by → auth.users, claimed_at, hidden bool, linkedin_url, github_url, website_url, bio, open_to_recruiters bool, ui_theme text, profile_theme text check (profile_theme in ('paper','sumi','sakura','midnight')))`. One row per human. Entity resolution maps accounts to people (§7.5).
 - `project_members(project_id, account_id)`
 - `schools(id, slug, name, aliases text[], country)`
 
@@ -366,7 +466,7 @@ Write all of these into `_next` shadow tables, then swap them in one transaction
 ### 7.7 Row-level security
 
 - Public (anon) can `select` only from views: `public_people` (where not hidden), `public_ratings`, `public_hackathons`, and so on. No direct table access.
-- Authenticated users can `update` only their own `people` row, only the owner-editable columns (links, bio, school, open_to_recruiters, hidden).
+- Authenticated users can `update` only their own `people` row, only the owner-editable columns (links, bio, school, open_to_recruiters, hidden, ui_theme, profile_theme).
 - `corrections`: insert is allowed for authenticated users; select only their own; update only for admins.
 - The pipeline uses the service-role key, server-side only.
 
@@ -480,9 +580,9 @@ All public pages are statically generated with ISR (revalidated on publish throu
 | `/duos` | Best duos board |
 | `/how-ratings-work` | Full public methodology: plain language first, math in expandable sections, simulation results |
 | `/claim` | Claim flow (§11) |
-| `/me` | Signed-in owner dashboard: edit links, bio, school; manage merges; corrections status; hide profile; email preferences |
+| `/me` | Signed-in owner dashboard: edit links, bio, school; **profile theme picker** (Paper, Sumi, Sakura, Midnight, with a live preview of profile and share card); manage merges; corrections status; hide profile; email preferences |
 | `/remove` | No-login removal through the bio code |
-| `/og/h/[slug]`, `/og/s/[slug]`, `/og/e/[slug]` | 1200×630 share cards in the design style: giant rank numeral, name, rating, "Top 3%", best win |
+| `/og/h/[slug]`, `/og/s/[slug]`, `/og/e/[slug]` | 1200×630 share cards styled as an OS window on the warped grid: giant rank numeral, name, rating, "Top 3%", best win. Profiles render in their owner's `profile_theme`. |
 | `/upcoming` (Phase 2) | Upcoming events with field-strength forecasts and, for signed-in claimed users, "your odds" |
 
 ---
@@ -503,7 +603,7 @@ All public pages are statically generated with ISR (revalidated on publish throu
 ## 12. Quality bar
 
 - **Performance:** public pages have LCP under 1.5s on 4G, the profile JS bundle is under 120kb, and search responds in under 150ms at p95.
-- **Accessibility:** WCAG AA contrast (check `--graphite` on `--paper` and `--tile`), visible focus everywhere, full keyboard navigation of rail and search, and charts with text alternatives (a table toggle).
+- **Accessibility:** WCAG AA contrast (check `--muted` on `--bg` and `--win` in every theme), visible focus everywhere, full keyboard navigation of rail and search, and charts with text alternatives (a table toggle).
 - **SEO:** `sitemap.xml` covers all non-hidden people, schools, events and series. Profiles get canonical URLs and person-appropriate meta. Hidden people return 404 with `noindex`.
 - **Tests:**
   - Parsers have 100% fixture coverage.
@@ -524,6 +624,7 @@ Work top to bottom. Check items off here as they're done.
 - [x] Monorepo scaffold per §5; uv project; Next.js app; CI running lint, typecheck and tests (pipeline, web, database jobs)
 - [x] Supabase project linked; migrations applied to the hosted project (2026-10-15)
 - [x] Design tokens and font in `globals.css` matching `design/reference.html` (kept in sync by `apps/web/tests/tokens.test.ts`)
+- [ ] Design tokens for all four themes, both font families, and the no-flash theme script in `globals.css` and the root layout, matching the redesigned `design/reference.html`
 
 ### Phase 1: Data (the hard part)
 - [x] Save real fixtures: list API page, 3 galleries (big, small, multi-page), 10 project pages (winners, non-winners, multi-event submissions, solo teams), 3 user pages
@@ -544,7 +645,7 @@ Work top to bottom. Check items off here as they're done.
 - [ ] Backfill run plus spot-check report
 
 ### Phase 2: Site core
-- [ ] Layout chrome: rail, logo, CTA, menu, progress line, countdown, mobile nav
+- [ ] OS chrome: menu bar with timecode countdown, desktop icons, claim button, window component, dock with theme switcher, warped-grid wallpaper, mobile bottom bar
 - [ ] Home, `/hackers`, `/h/[slug]`, `/schools`, `/s/[slug]`, `/events`, `/e/[slug]`, `/series/[slug]`, `/duos`, `/how-ratings-work`
 - [ ] Search RPC plus instant dropdown
 - [ ] OG share cards
@@ -635,6 +736,10 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-16: MLH matching ranks candidates by how the names relate (same name > one contains the other > merely similar) before the fuzzy score, and an exact name no other candidate shares is accepted automatically even with a similar runner-up. Why: the fuzzy score alone suggested "hackPHS 2022" for HackPSU, over "HackPSU Fall 2022"; on the live data the exact rule moved 34 suggestions to automatic, all correct, and changed no existing automatic match.
 - 2026-10-16: `/admin/mlh` is a work queue. The matcher stores its top 3 candidates per event (`mlh_event_matches.candidates`), so fixing a suggestion is one click or key. "Likely right" suggestions (same or contained name, deadline within a day, no rival name) come pre-checked for a batch confirm, decisions are optimistic with undo, and events that haven't happened yet have their own tab. Why: the first full crawl left 591 events to review one form at a time.
 - 2026-10-16: `hackathon_strength.field_mean`/`top_field` hold the hindsight values from the event analysis (final ratings), not the prototype's pre-event values, because those are what event pages show. Ranks come from prize names re-tiered with the live config at rate time, so admin tier changes apply without re-crawling.
+- 2026-10-16: The hero headline drops the circled chevron; a mark inside a headline reads as a stray letter.
+- 2026-10-16: The logo is the flat H-ladder mark (a slanted H with two rungs and an orange top rung), refined to big-tech standards with mono, reverse, avatar and app-icon variants. Brown wood and pixel-art versions were explored and rejected.
+- 2026-10-16: Reskinned as "HackLadder OS": Brand Appart structure plus a clean Japanese-tech desktop (menu bar, windows, timecodes, warped grid), inspired by 109ichiki.com. Claimed profiles choose their profile and share-card theme, as a claim perk.
+- 2026-10-16: Themes are Paper (default light), Sumi (default dark), Sakura and Midnight, in that order. Japanese labels were removed. The boot screen stays, reading "hackladder" and "loading...", never "os".
 - 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN.
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 
@@ -644,7 +749,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 
 - **School data:** does a public Devpost user page show school? **Answered 2026-10-14: no.** Public user pages have no school or education field (checked `aaravwattal`, `NilsIrl`, `dylanjpaulson`; the only "Education" on the page is an interest tag). Devpost may collect school privately for eligibility, but it isn't published. School sometimes appears in the free-text bio ("EE+CS @ Stanford"), which is also shown under the member's name on project pages. So school comes from claims, and school boards start sparse. **Decided:** school comes only from the owner after claiming (no bio parsing, no inference). School boards fill in as people claim.
 - ~~**Analytics:**~~ Vercel Web Analytics (decided 2026-10-15; `<Analytics />` in the root layout). Page views are free; custom events (search, claim_started, ...) need a paid Vercel plan, so revisit when Phase 4 adds them.
-- **Mobile nav:** bottom tab bar or full-screen menu only.
+- ~~**Mobile nav:**~~ the dock becomes a full-width bottom bar on mobile (§4.3, redesign 2026-10-16).
 - ~~**Domain:**~~ **www.hackladder.com** (bought 2026-10-15). The apex hackladder.com redirects to www. Site URL, Supabase auth redirects and the Resend sending domain all use it.
 - ~~**Devpost outreach:** before launch or after.~~ After launch (§9.7).
 - ~~**Season definition:**~~ Aug–Jul academic year (decided 2026-10-14).

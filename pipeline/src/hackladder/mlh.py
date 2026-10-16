@@ -15,6 +15,8 @@ from hackladder.mlh_match import DevpostRow, MlhRow, match_all
 from hackladder.parse import MlhEvent, parse_mlh_season
 
 SEASON_URL = "https://mlh.io/seasons/{season}/events?page={page}"
+# Before the 2021 season MLH ran separate regional seasons; ``seasons/2020`` is a 404.
+REGIONAL_PREFIXES = ("na", "eu")
 MAX_PAGES_PER_SEASON = 40  # ~10 in practice; a guard against an endless loop if paging changes
 
 
@@ -58,33 +60,54 @@ def upsert_mlh_events(conn: Connection, season: str, events: Iterable[MlhEvent])
 def crawl_mlh_seasons(
     client: Fetcher, conn: Connection, raw_root: Path, seasons: Iterable[int]
 ) -> MlhCrawlResult:
+    """Fetch each season's schedule; a year with no ``seasons/YYYY`` page falls back to the
+    regional ``na-YYYY`` and ``eu-YYYY`` seasons, keyed by that name in ``events_by_season``."""
     result = MlhCrawlResult()
     for season in seasons:
-        total = 0
-        for page in range(1, MAX_PAGES_PER_SEASON + 1):
-            url = SEASON_URL.format(season=season, page=page)
-            try:
-                fetched = client.get(url)
-            except FetchFailedError as exc:
-                record_failure(conn, url, "mlh_season", exc.status, exc.error)
-                result.failures.append(f"{url}: {exc.error}")
-                break
-            record_raw_page(
-                conn, url, "mlh_season", fetched.status,
-                str(store_raw(raw_root, url, fetched.text)) if fetched.status == 200 else None,
-            )  # fmt: skip
-            if fetched.status != 200:
-                break  # seasons MLH never ran return 404
-            parsed = parse_mlh_season(fetched.text)
-            result.pages += 1
-            if not parsed.events:
-                break
-            total += upsert_mlh_events(conn, parsed.season, parsed.events)
-            conn.commit()
-        if total:
-            result.events_by_season[str(season)] = total
-        conn.commit()
+        if _crawl_season(client, conn, raw_root, str(season), result) is None:
+            for prefix in REGIONAL_PREFIXES:
+                _crawl_season(client, conn, raw_root, f"{prefix}-{season}", result)
     return result
+
+
+def _crawl_season(
+    client: Fetcher, conn: Connection, raw_root: Path, name: str, result: MlhCrawlResult
+) -> int | None:
+    """Crawl one season's pages. Returns how many distinct events it had, or None if MLH has
+    no season by that name (its first page isn't a 200).
+
+    The current season lists every upcoming event on every page, after the page's past
+    events, so a page past the end isn't empty; stop at the first page with no new events.
+    """
+    seen: set[str] = set()
+    for page in range(1, MAX_PAGES_PER_SEASON + 1):
+        url = SEASON_URL.format(season=name, page=page)
+        try:
+            fetched = client.get(url)
+        except FetchFailedError as exc:
+            record_failure(conn, url, "mlh_season", exc.status, exc.error)
+            result.failures.append(f"{url}: {exc.error}")
+            break
+        record_raw_page(
+            conn, url, "mlh_season", fetched.status,
+            str(store_raw(raw_root, url, fetched.text)) if fetched.status == 200 else None,
+        )  # fmt: skip
+        conn.commit()
+        if fetched.status != 200:
+            if page == 1:
+                return None
+            break
+        parsed = parse_mlh_season(fetched.text)
+        result.pages += 1
+        new = [e for e in parsed.events if e.source_id not in seen]
+        if not new:
+            break
+        seen.update(e.source_id for e in new)
+        upsert_mlh_events(conn, parsed.season, new)
+        conn.commit()
+    if seen:
+        result.events_by_season[name] = len(seen)
+    return len(seen)
 
 
 def apply_matches(conn: Connection) -> Counter[str]:

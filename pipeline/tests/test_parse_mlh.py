@@ -52,6 +52,27 @@ def test_last_page_and_past_the_end() -> None:
     assert parse_mlh_season(read_fixture("mlh/season-2025_p10.html")).events == ()
 
 
+def test_current_season_repeats_upcoming_events_past_the_end() -> None:
+    # The live season lists all upcoming events on every page, so a page past the end of the
+    # past events isn't empty; it only repeats events the crawler has already seen.
+    last = parse_mlh_season(read_fixture("mlh/season-2027_p3.html"))
+    past_the_end = parse_mlh_season(read_fixture("mlh/season-2027_p4.html"))
+    assert last.season == past_the_end.season == "2027"
+    assert len(last.events) == 70  # 1 past event + 69 upcoming
+    assert len(past_the_end.events) == 69
+    assert {e.source_id for e in past_the_end.events} < {e.source_id for e in last.events}
+
+
+def test_pre_2021_seasons_are_regional() -> None:
+    na = parse_mlh_season(read_fixture("mlh/season-na-2020_p1.html"))
+    eu = parse_mlh_season(read_fixture("mlh/season-eu-2020_p1.html"))
+    assert (na.season, len(na.events)) == ("2020 NA", 24)
+    assert (eu.season, len(eu.events)) == ("2020 Europe", 16)
+    assert na.events[0].name == "HackTJ"
+    assert eu.events[0].name == "Oxford Digithon"
+    assert not {e.source_id for e in na.events} & {e.source_id for e in eu.events}
+
+
 def _page(component: str, events: list[dict[str, object]]) -> str:
     props = {"seriesName": "2026", "upcomingEvents": events, "pastEvents": events}
     data = json.dumps({"component": component, "props": props})

@@ -1,8 +1,9 @@
-"""MLH season schedule: ``https://mlh.io/seasons/<year>/events?page=N``.
+"""MLH season schedule: ``https://mlh.io/seasons/<season>/events?page=N``.
 
-The page is an Inertia.js app: every event is in the JSON inside
-``<script type="application/json" data-page="app">``, 24 per page, newest first.
-A page past the end has no events, which is how a crawler knows to stop.
+``<season>`` is a year, or ``na-<year>``/``eu-<year>`` before 2021. The page is an Inertia.js
+app: every event is in the JSON inside ``<script type="application/json" data-page="app">``,
+24 past events per page, newest first. Every page also lists all the season's upcoming
+events, so a page past the end holds only events already seen (or nothing at all).
 """
 
 from __future__ import annotations

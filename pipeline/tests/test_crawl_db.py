@@ -32,7 +32,10 @@ def conn() -> Iterator[psycopg.Connection[Any]]:
     with psycopg.connect(os.environ["DATABASE_URL"]) as c:
         yield c
         c.rollback()
-        c.execute("delete from public.mlh_events where slug like 'test-%' or season = '2025'")
+        c.execute(
+            "delete from public.mlh_events where slug like %s or season = any(%s)",
+            ("test-%", ["2025", "2027", "2020 NA", "2020 Europe"]),
+        )
         c.execute("delete from public.hackathons where source = 'devpost'")
         c.execute("delete from public.crawl_checkpoints")
         c.execute("delete from public.raw_pages_index")
@@ -167,3 +170,44 @@ def test_mlh_crawl_and_matching(conn: psycopg.Connection[Any], tmp_path: Path) -
         "select is_mlh, is_high_school from public.hackathons where slug = 'jamhacks-9'"
     ).fetchone()
     assert is_mlh == (False, True)  # no longer MLH, but the high-school flag is never cleared (§9)
+
+
+def test_mlh_crawl_stops_when_a_page_adds_no_new_events(
+    conn: psycopg.Connection[Any], tmp_path: Path
+) -> None:
+    # Past the end of the current season, pages still list every upcoming event.
+    repeat = read_fixture("mlh/season-2027_p4.html")
+    pages = {
+        SEASON_URL.format(season=2027, page=1): read_fixture("mlh/season-2027_p3.html"),
+        SEASON_URL.format(season=2027, page=2): repeat,
+        SEASON_URL.format(season=2027, page=3): repeat,
+    }
+    client = Pages(pages)
+    result = crawl_mlh_seasons(client, conn, tmp_path, [2027])
+    assert client.requested == [SEASON_URL.format(season=2027, page=n) for n in (1, 2)]
+    assert result.events_by_season == {"2027": 70}
+    assert result.pages == 2
+    stored = conn.execute("select count(*) from public.mlh_events where season = '2027'").fetchone()
+    assert stored == (70,)
+
+
+def test_mlh_crawl_falls_back_to_regional_seasons(conn: psycopg.Connection[Any], tmp_path: Path) -> None:
+    pages = {
+        SEASON_URL.format(season="na-2020", page=1): read_fixture("mlh/season-na-2020_p1.html"),
+        SEASON_URL.format(season="na-2020", page=2): read_fixture("mlh/season-2025_p10.html"),  # empty
+        SEASON_URL.format(season="eu-2020", page=1): read_fixture("mlh/season-eu-2020_p1.html"),
+        # eu-2020 page 2 is a 404 here: stop that season
+        SEASON_URL.format(season=2025, page=1): read_fixture("mlh/season-2025_p1.html"),
+    }
+    client = Pages(pages)
+    result = crawl_mlh_seasons(client, conn, tmp_path, [2020, 2025])
+    assert result.events_by_season == {"na-2020": 24, "eu-2020": 16, "2025": 24}
+    assert SEASON_URL.format(season=2020, page=1) in client.requested
+    # A year that has its own season page is never looked up regionally.
+    assert not any("na-2025" in u or "eu-2025" in u for u in client.requested)
+    seasons = dict(
+        conn.execute(
+            "select season, count(*) from public.mlh_events where season like '2020 %' group by season"
+        ).fetchall()
+    )
+    assert seasons == {"2020 NA": 24, "2020 Europe": 16}

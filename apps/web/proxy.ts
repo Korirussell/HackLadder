@@ -52,5 +52,5 @@ async function refreshSession(
 }
 
 export const config = {
-  matcher: ["/", "/admin/:path*", "/sign-in", "/auth/:path*"],
+  matcher: ["/", "/admin/:path*", "/sign-in", "/auth/:path*", "/claim", "/me", "/corrections/:path*"],
 };

@@ -73,6 +73,46 @@ export type Database = {
         }
         Relationships: []
       }
+      bio_checks: {
+        Row: {
+          account_id: number
+          checked_at: string
+          found: boolean
+          id: number
+          kind: string
+          user_id: string | null
+        }
+        Insert: {
+          account_id: number
+          checked_at?: string
+          found: boolean
+          id?: never
+          kind: string
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: number
+          checked_at?: string
+          found?: boolean
+          id?: never
+          kind?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bio_checks_account_id_fkey"
+            columns: ["account_id"]
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bio_checks_account_id_fkey"
+            columns: ["account_id"]
+            referencedRelation: "public_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_attempts: {
         Row: {
           account_id: number
@@ -851,8 +891,10 @@ export type Database = {
           id: number
           linkedin_url: string | null
           open_to_recruiters: boolean
+          profile_theme: string | null
           school_id: number | null
           slug: string
+          ui_theme: string | null
           updated_at: string
           website_url: string | null
         }
@@ -867,8 +909,10 @@ export type Database = {
           id?: never
           linkedin_url?: string | null
           open_to_recruiters?: boolean
+          profile_theme?: string | null
           school_id?: number | null
           slug: string
+          ui_theme?: string | null
           updated_at?: string
           website_url?: string | null
         }
@@ -883,8 +927,10 @@ export type Database = {
           id?: never
           linkedin_url?: string | null
           open_to_recruiters?: boolean
+          profile_theme?: string | null
           school_id?: number | null
           slug?: string
+          ui_theme?: string | null
           updated_at?: string
           website_url?: string | null
         }
@@ -1425,6 +1471,46 @@ export type Database = {
         }
         Relationships: []
       }
+      removal_attempts: {
+        Row: {
+          account_id: number
+          code: string
+          created_at: string
+          expires_at: string
+          id: number
+          verified_at: string | null
+        }
+        Insert: {
+          account_id: number
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: never
+          verified_at?: string | null
+        }
+        Update: {
+          account_id?: number
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: never
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "removal_attempts_account_id_fkey"
+            columns: ["account_id"]
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "removal_attempts_account_id_fkey"
+            columns: ["account_id"]
+            referencedRelation: "public_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       removals: {
         Row: {
           person_id: number
@@ -1704,6 +1790,32 @@ export type Database = {
           },
         ]
       }
+      live_board: {
+        Row: {
+          events: number | null
+          grand_prizes: number | null
+          last_event_on: string | null
+          percentile: number | null
+          person_id: number | null
+          placements: number | null
+          rank: number | null
+          score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_person_id_fkey"
+            columns: ["person_id"]
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_person_id_fkey"
+            columns: ["person_id"]
+            referencedRelation: "public_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mlh_match_review: {
         Row: {
           candidates: Json | null
@@ -1929,6 +2041,7 @@ export type Database = {
           id: number | null
           is_claimed: boolean | null
           linkedin_url: string | null
+          profile_theme: string | null
           school_id: number | null
           slug: string | null
           website_url: string | null
@@ -1940,6 +2053,7 @@ export type Database = {
           id?: number | null
           is_claimed?: never
           linkedin_url?: never
+          profile_theme?: never
           school_id?: number | null
           slug?: string | null
           website_url?: never
@@ -1951,6 +2065,7 @@ export type Database = {
           id?: number | null
           is_claimed?: never
           linkedin_url?: never
+          profile_theme?: never
           school_id?: number | null
           slug?: string | null
           website_url?: never
@@ -2261,13 +2376,149 @@ export type Database = {
       }
     }
     Functions: {
+      account_for: {
+        Args: { p_username: string }
+        Returns: {
+          account_id: number
+          claimed_by: string
+          display_name: string
+          person_id: number
+          username: string
+        }[]
+      }
+      approve_school_correction: {
+        Args: { p_correction_id: number; p_school_name: string }
+        Returns: number
+      }
+      best_win: {
+        Args: { p_person: number }
+        Returns: {
+          event_slug: string
+          event_title: string
+          prize_name: string
+          win_odds: number
+        }[]
+      }
+      bio_has_code: {
+        Args: { p_code: string; p_html: string }
+        Returns: boolean
+      }
+      devpost_user_html: { Args: { p_username: string }; Returns: string }
+      duo_board: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          a_name: string
+          a_slug: string
+          b_name: string
+          b_slug: string
+          events: number
+          overperformance: number
+          placements: number
+          rank: number
+          score: number
+        }[]
+      }
+      event_board: {
+        Args: {
+          p_limit?: number
+          p_min_teams?: number
+          p_offset?: number
+          p_online?: boolean
+          p_year?: number
+        }
+        Returns: {
+          elite: number
+          ends_on: string
+          event_rating: number
+          event_tier: string
+          is_online: boolean
+          location: string
+          rank: number
+          series_slug: string
+          slug: string
+          teams: number
+          title: string
+          total: number
+          win_odds: number
+        }[]
+      }
+      event_page: { Args: { p_slug: string }; Returns: Json }
       f_unaccent: { Args: { "": string }; Returns: string }
+      hacker_page: { Args: { p_slug: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      ladder: {
+        Args: { p_limit?: number; p_offset?: number; p_school?: string }
+        Returns: {
+          best_event_slug: string
+          best_event_title: string
+          best_prize: string
+          display_name: string
+          events: number
+          is_claimed: boolean
+          month_change: number
+          placements: number
+          rank: number
+          school_name: string
+          school_slug: string
+          score: number
+          slug: string
+          tier: string
+          total: number
+        }[]
+      }
+      month_change: { Args: { p_person: number }; Returns: number }
       move_prize_rule: {
         Args: { direction: number; rule_id: number }
         Returns: undefined
       }
+      my_claim_attempts: {
+        Args: never
+        Returns: {
+          attempt_id: number
+          code: string
+          display_name: string
+          expires_at: string
+          username: string
+        }[]
+      }
+      my_merge_candidates: {
+        Args: never
+        Returns: {
+          display_name: string
+          score: number
+          username: string
+        }[]
+      }
+      new_bio_code: { Args: never; Returns: string }
+      next_event: {
+        Args: never
+        Returns: {
+          ends_at: string
+          location: string
+          name: string
+          starts_at: string
+          website_url: string
+        }[]
+      }
+      provisional_count: { Args: never; Returns: number }
       publish_gold: { Args: never; Returns: undefined }
+      rank_tier: {
+        Args: { p_rank: number; p_top_percent: number }
+        Returns: string
+      }
+      school_board: {
+        Args: { p_season?: string }
+        Returns: {
+          members: number
+          name: string
+          rank: number
+          rating: number
+          season: string
+          slug: string
+        }[]
+      }
+      school_page: { Args: { p_slug: string }; Returns: Json }
+      school_seasons: { Args: never; Returns: string[] }
       search: {
         Args: { lim?: number; q: string }
         Returns: {
@@ -2278,6 +2529,73 @@ export type Database = {
           slug: string
           username: string
         }[]
+      }
+      series_board: {
+        Args: { p_limit?: number }
+        Returns: {
+          best_slug: string
+          best_title: string
+          editions: number
+          name: string
+          rank: number
+          rating: number
+          slug: string
+        }[]
+      }
+      series_page: { Args: { p_slug: string }; Returns: Json }
+      site_stats: {
+        Args: never
+        Returns: {
+          hackathons: number
+          hackers: number
+          rated_events: number
+          rated_hackers: number
+          updated_at: string
+        }[]
+      }
+      sitemap_entries: {
+        Args: never
+        Returns: {
+          kind: string
+          slug: string
+          updated_at: string
+        }[]
+      }
+      slugify: { Args: { p_text: string }; Returns: string }
+      start_claim: {
+        Args: { p_username: string }
+        Returns: {
+          attempt_id: number
+          code: string
+          display_name: string
+          expires_at: string
+          username: string
+        }[]
+      }
+      start_removal: {
+        Args: { p_username: string }
+        Returns: {
+          code: string
+          display_name: string
+          expires_at: string
+          username: string
+        }[]
+      }
+      upcoming_events: {
+        Args: { p_limit?: number }
+        Returns: {
+          ends_at: string
+          format: string
+          location: string
+          name: string
+          starts_at: string
+          website_url: string
+        }[]
+      }
+      verify_claim: { Args: { p_attempt_id: number }; Returns: string }
+      verify_removal: {
+        Args: { p_code: string; p_username: string }
+        Returns: string
       }
     }
     Enums: {

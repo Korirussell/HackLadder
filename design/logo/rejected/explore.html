@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>HackLadder logo exploration</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F6F3EC;--ink:#17140F;--signal:#FF5B14;--tile:#ECE7DE;--graphite:#6F685E;--rule:#DDD6CA}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:"Bricolage Grotesque",sans-serif;padding:48px;width:1440px}
+h1{font-weight:800;font-variation-settings:"opsz" 96,"wdth" 82;letter-spacing:-.05em;font-size:64px;line-height:.9;margin-bottom:40px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.card{background:#fff8;border:1px solid var(--rule);border-radius:24px;padding:28px}
+.card h2{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.card p{color:var(--graphite);font-size:15px;margin:4px 0 20px;min-height:44px}
+.big{height:220px;display:grid;place-items:center;background:var(--paper);border-radius:16px}
+.big svg{width:180px;height:180px}
+.sizes{display:flex;align-items:end;gap:18px;margin-top:20px}
+.sizes svg{display:block}
+.tab{display:flex;align-items:center;gap:8px;background:#E3DED4;border-radius:10px 10px 0 0;padding:8px 12px;font-size:13px;margin-top:18px;width:max-content}
+.app{width:56px;height:56px;border-radius:14px;background:var(--ink);display:grid;place-items:center}
+.app svg{width:36px;height:36px}
+.lock{display:flex;align-items:center;gap:12px;margin-top:20px}
+.lock span{font-weight:800;font-variation-settings:"opsz" 40,"wdth" 80;letter-spacing:-.05em;font-size:30px}
+</style></head><body>
+<h1>H as a ladder</h1>
+
+<svg width="0" height="0" style="position:absolute">
+ <defs>
+  <!-- A: literal — sheared H, three equal rungs -->
+  <symbol id="A" viewBox="0 0 100 100">
+   <g transform="translate(9 0) skewX(-12)">
+    <rect x="18" y="8" width="17" height="84" fill="currentColor"/>
+    <rect x="65" y="8" width="17" height="84" fill="currentColor"/>
+    <rect x="35" y="27" width="30" height="10" fill="currentColor"/>
+    <rect x="35" y="45" width="30" height="10" fill="currentColor"/>
+    <rect x="35" y="63" width="30" height="10" fill="currentColor"/>
+   </g>
+  </symbol>
+  <!-- B: sheared, rails overrun the rungs, top rung orange -->
+  <symbol id="B" viewBox="0 0 100 100">
+   <g transform="translate(9 0) skewX(-12)">
+    <rect x="18" y="6" width="18" height="88" fill="currentColor"/>
+    <rect x="64" y="6" width="18" height="88" fill="currentColor"/>
+    <rect x="36" y="58" width="28" height="12" fill="currentColor"/>
+    <rect x="36" y="22" width="28" height="12" fill="var(--signal)"/>
+   </g>
+  </symbol>
+  <!-- C: perspective — rails converge upward, rungs thin out, top rung orange -->
+  <symbol id="C" viewBox="0 0 100 100">
+   <polygon points="10,94 30,94 40,6 30,6" fill="currentColor"/>
+   <polygon points="70,94 90,94 70,6 60,6" fill="currentColor"/>
+   <polygon points="25.7,72 74.3,72 73.2,62 26.8,62" fill="currentColor"/>
+   <polygon points="31.2,24 68.8,24 68,16 32,16" fill="var(--signal)"/>
+  </symbol>
+  <!-- D: climbing — right rail rises above the left, top rung orange -->
+  <symbol id="D" viewBox="0 0 100 100">
+   <g transform="translate(8 0) skewX(-10)">
+    <rect x="16" y="24" width="18" height="70" fill="currentColor"/>
+    <rect x="64" y="6" width="18" height="88" fill="currentColor"/>
+    <rect x="34" y="62" width="30" height="12" fill="currentColor"/>
+    <rect x="34" y="34" width="30" height="12" fill="var(--signal)"/>
+   </g>
+  </symbol>
+ </defs>
+</svg>
+
+<div class="grid">
+ <div class="card" data-v="A"><h2>A. Literal</h2><p>Your idea as stated. Three rungs, slanted. Watch the 16px size.</p></div>
+ <div class="card" data-v="B"><h2>B. Top rung</h2><p>Two rungs, rails run past them like a real ladder. The top rung is orange.</p></div>
+ <div class="card" data-v="C"><h2>C. Looking up</h2><p>Rails converge as they rise, like a ladder seen from below.</p></div>
+ <div class="card" data-v="D"><h2>D. Climbing</h2><p>Right rail rises higher, so the mark itself steps upward.</p></div>
+</div>
+
+<script>
+document.querySelectorAll('.card').forEach(c=>{
+  const v=c.dataset.v, use=(s,col='var(--ink)')=>`<svg width="${s}" height="${s}" style="color:${col}"><use href="#${v}"/></svg>`;
+  c.insertAdjacentHTML('beforeend',`
+   <div class="big">${use(180)}</div>
+   <div class="sizes">${use(64)}${use(32)}${use(16)}<div class="app">${use(36,'var(--paper)')}</div></div>
+   <div class="tab">${use(16)} HackLadder · Every hacker…</div>
+   <div class="lock">${use(40)}<span>HackLadder</span></div>`);
+});
+</script>
+</body></html>

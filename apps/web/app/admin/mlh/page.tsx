@@ -78,19 +78,19 @@ async function MlhList({ searchParams }: Pick<PageProps<"/admin/mlh">, "searchPa
           <input id="q" name="q" defaultValue={q} placeholder="HackGT" className={`${input} mt-1`} />
         </div>
         <input type="hidden" name="show" value={filter} />
-        <button type="submit" className="rounded-button bg-ink px-5 py-2.5 font-bold text-paper">Search</button>
+        <button type="submit" className="rounded-button bg-ink px-5 py-2.5 font-bold text-bg">Search</button>
       </form>
       <nav aria-label="Filter" className="mt-5 flex flex-wrap gap-5 text-[15px]">
         {(Object.keys(FILTERS) as Filter[]).map((f) => (
           <Link key={f} href={href({ show: f, page: 1 })} aria-current={f === filter ? "page" : undefined}
-            className={f === filter ? "font-bold underline underline-offset-4" : "text-graphite hover:text-ink"}>
+            className={f === filter ? "font-bold underline underline-offset-4" : "text-muted hover:text-ink"}>
             {FILTERS[f]}
             {typeof counts[f] === "number" ? ` (${counts[f]})` : ""}
           </Link>
         ))}
       </nav>
       {filter === "upcoming" && (
-        <p className="mt-4 max-w-[70ch] text-[15px] text-graphite">
+        <p className="mt-4 max-w-[70ch] text-[15px] text-muted">
           These haven&apos;t happened yet, so their Devpost pages may not exist. Leave them: `hl mlh match` re-checks
           every undecided event after each crawl.
         </p>
@@ -110,7 +110,7 @@ async function MlhList({ searchParams }: Pick<PageProps<"/admin/mlh">, "searchPa
         <nav aria-label="Pages" className="mt-8 flex gap-6 font-bold">
           {page > 1 && <Link href={href({ page: page - 1 })}>Newer</Link>}
           {page * PAGE_SIZE < (count ?? 0) && <Link href={href({ page: page + 1 })}>Older</Link>}
-          <span className="font-normal text-graphite">Page {page} of {Math.ceil((count ?? 0) / PAGE_SIZE)}</span>
+          <span className="font-normal text-muted">Page {page} of {Math.ceil((count ?? 0) / PAGE_SIZE)}</span>
         </nav>
       )}
     </>

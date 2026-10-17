@@ -142,9 +142,9 @@ export function ReviewQueue({ likely, rest, restTitle }: { likely: ReviewRow[]; 
       <section className="mt-10">
         <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-ink pb-2">
           <h2 className="text-[24px] font-bold tracking-[-0.02em]">
-            {title} <span className="font-normal text-graphite">({rows.length})</span>
+            {title} <span className="font-normal text-muted">({rows.length})</span>
           </h2>
-          <p className="max-w-[60ch] text-[14px] text-graphite">{explainer}</p>
+          <p className="max-w-[60ch] text-[14px] text-muted">{explainer}</p>
         </div>
         <ul>
           {rows.map((r) => (
@@ -165,7 +165,7 @@ export function ReviewQueue({ likely, rest, restTitle }: { likely: ReviewRow[]; 
 
   return (
     <div className="pb-32">
-      <p className="mt-6 text-[14px] text-graphite">
+      <p className="mt-6 text-[14px] text-muted">
         Keys: <Kbd>j</Kbd>/<Kbd>k</Kbd> move · <Kbd>1</Kbd>–<Kbd>9</Kbd> pick a candidate · <Kbd>c</Kbd> confirm the
         outlined match · <Kbd>x</Kbd> no Devpost event · <Kbd>space</Kbd> check · <Kbd>/</Kbd> search Devpost ·{" "}
         <Kbd>u</Kbd> undo
@@ -178,7 +178,7 @@ export function ReviewQueue({ likely, rest, restTitle }: { likely: ReviewRow[]; 
       {section(restTitle, shownRest, "Pick the right Devpost event, or mark that it has none.")}
       {!all.length && <p className="mt-12">All done on this list.</p>}
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-paper/95 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-4 px-4 py-3 min-[900px]:pl-[152px]">
           <span className="font-bold">{checkedRows.length} checked</span>
           <button type="button" className={button} disabled={!checkedRows.some((r) => r.hackathon_id !== null)} onClick={confirmChecked}>
@@ -191,7 +191,7 @@ export function ReviewQueue({ likely, rest, restTitle }: { likely: ReviewRow[]; 
             onClick={() => setToggled(new Set(all.filter((r) => likelyIds.has(r.mlh_event_id)).map((r) => r.mlh_event_id)))}>
             Uncheck all
           </button>
-          <span role="status" className="ml-auto flex items-center gap-3 text-[15px] text-graphite">
+          <span role="status" className="ml-auto flex items-center gap-3 text-[15px] text-muted">
             {message ?? undo?.label}
             {undo && (
               <button type="button" className={ghostButton} disabled={undoing} onClick={runUndo}>
@@ -206,7 +206,7 @@ export function ReviewQueue({ likely, rest, restTitle }: { likely: ReviewRow[]; 
 }
 
 function Kbd({ children }: { children: string }) {
-  return <kbd className="rounded-[6px] bg-tile px-1.5 py-0.5 text-[13px] font-semibold text-ink">{children}</kbd>;
+  return <kbd className="rounded-[6px] bg-chrome px-1.5 py-0.5 text-[13px] font-semibold text-ink">{children}</kbd>;
 }
 
 function QueueRow({
@@ -249,7 +249,7 @@ function QueueRow({
       onClick={(e) => {
         if (!(e.target as HTMLElement).closest("button, a, input, form")) onActivate();
       }}
-      className={`grid scroll-mt-24 scroll-mb-28 gap-4 border-b border-rule px-3 py-4 min-[900px]:grid-cols-[auto_1fr_1.5fr] ${active ? "rounded-tile bg-tile" : ""}`}
+      className={`grid scroll-mt-24 scroll-mb-28 gap-4 border-b border-line px-3 py-4 min-[900px]:grid-cols-[auto_1fr_1.5fr] ${active ? "rounded-tile bg-chrome" : ""}`}
     >
       <input
         type="checkbox"
@@ -267,7 +267,7 @@ function QueueRow({
             </span>
           )}
         </p>
-        <p className="mt-1 text-[14px] text-graphite">
+        <p className="mt-1 text-[14px] text-muted">
           MLH season {row.season} · {fmt(row.starts_at)} to {fmt(row.ends_at)} · {row.format}
           {row.location ? ` · ${row.location}` : ""}
         </p>
@@ -276,13 +276,13 @@ function QueueRow({
             {row.website_url}
           </a>
         )}
-        <p className="mt-1 text-[13px] text-graphite">
+        <p className="mt-1 text-[13px] text-muted">
           {row.status}
           {row.note ? `: ${row.note}` : ""}
         </p>
       </div>
       <div>
-        {offered.length === 0 && <p className="text-[15px] text-graphite">No Devpost event within 3 days. Search below.</p>}
+        {offered.length === 0 && <p className="text-[15px] text-muted">No Devpost event within 3 days. Search below.</p>}
         <ol className="flex flex-col gap-1.5">
           {offered.map((c, i) => (
             <Choice key={c.hackathon_id} candidate={c} index={i + 1} current={c.hackathon_id === row.hackathon_id} onPick={onPick} />
@@ -291,7 +291,7 @@ function QueueRow({
             <Choice key={`s${r.hackathon_id}`} candidate={r} current={r.hackathon_id === row.hackathon_id} onPick={onPick} />
           ))}
         </ol>
-        {results?.length === 0 && <p className="mt-2 text-[14px] text-graphite">No Devpost events found.</p>}
+        {results?.length === 0 && <p className="mt-2 text-[14px] text-muted">No Devpost events found.</p>}
         {searchError && <p role="alert" className="mt-2 text-[14px]">{searchError}</p>}
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button type="button" className={ghostButton} onClick={onReject}>
@@ -339,7 +339,7 @@ function Choice({
       <button
         type="button"
         onClick={() => onPick(c.hackathon_id, c.title)}
-        className={`flex flex-1 items-baseline gap-2 rounded-[10px] px-2.5 py-1.5 text-left text-[15px] hover:bg-ink hover:text-paper focus-visible:shadow-[0_0_0_3px_var(--color-signal)] focus-visible:outline-none ${current ? "ring-1 ring-ink" : ""}`}
+        className={`flex flex-1 items-baseline gap-2 rounded-[10px] px-2.5 py-1.5 text-left text-[15px] hover:bg-ink hover:text-bg focus-visible:shadow-[0_0_0_3px_var(--color-select)] focus-visible:outline-none ${current ? "ring-1 ring-ink" : ""}`}
       >
         {index !== undefined && index <= 9 && <Kbd>{String(index)}</Kbd>}
         <span>
@@ -347,7 +347,7 @@ function Choice({
           {current && <span className="opacity-70"> · current match</span>}
         </span>
       </button>
-      <a href={`https://${c.slug}.devpost.com/`} target="_blank" rel="noreferrer" className="py-1.5 text-[14px] text-graphite underline underline-offset-2"
+      <a href={`https://${c.slug}.devpost.com/`} target="_blank" rel="noreferrer" className="py-1.5 text-[14px] text-muted underline underline-offset-2"
         onClick={(e) => e.stopPropagation()}>
         Open
       </a>

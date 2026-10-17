@@ -28,7 +28,7 @@ export function ActionForm({
           {pending ? "Saving" : submitLabel}
         </button>
         {state.ok && !pending && (
-          <span role="status" className="text-[15px] text-graphite">
+          <span role="status" className="text-[15px] text-muted">
             Saved. Applies at the next rating run.
           </span>
         )}

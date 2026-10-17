@@ -47,18 +47,18 @@ async function PrizeRules() {
 
       <section aria-labelledby="rules-head">
         <h2 id="rules-head" className="border-b border-ink pb-3 text-[28px] font-bold tracking-[-0.03em]">
-          Rules <span className="text-graphite">· default tier {defaultTier}</span>
+          Rules <span className="text-muted">· default tier {defaultTier}</span>
         </h2>
         {rules.length === 0 && (
           <p className="mt-6">No rules yet. Load the defaults with <code>uv run hl config seed</code>, or add one below.</p>
         )}
         <ol className="mt-2">
           {rules.map((rule, i) => (
-            <li key={rule.id} className="border-b border-rule py-7">
+            <li key={rule.id} className="border-b border-line py-7">
               <div className="mb-4 flex flex-wrap items-center gap-4">
                 <span className="numeral text-[44px]">{i + 1}</span>
                 <span className="text-[20px] font-bold">{rule.name}</span>
-                <span className="text-graphite">tier {rule.tier}{rule.enabled === false ? " · disabled" : ""}</span>
+                <span className="text-muted">tier {rule.tier}{rule.enabled === false ? " · disabled" : ""}</span>
                 <span className="ml-auto flex gap-4">
                   <form action={moveRule}>
                     <input type="hidden" name="id" value={rule.id ?? ""} />
@@ -80,7 +80,7 @@ async function PrizeRules() {
             </li>
           ))}
         </ol>
-        <div className="mt-8 rounded-card bg-tile p-7">
+        <div className="mt-8 rounded-card bg-chrome p-7">
           <h3 className="mb-4 text-[20px] font-bold">Add a rule</h3>
           <RuleEditor rule={blank} allRules={rules} defaultTier={defaultTier} />
         </div>
@@ -93,10 +93,10 @@ async function PrizeRules() {
         {overrides?.length ? (
           <ul>
             {overrides.map((o) => (
-              <li key={`${o.hackathon_id}-${o.prize_name}`} className="flex flex-wrap items-baseline gap-4 border-b border-rule py-4">
+              <li key={`${o.hackathon_id}-${o.prize_name}`} className="flex flex-wrap items-baseline gap-4 border-b border-line py-4">
                 <span className="stat text-[28px]">Tier {o.tier}</span>
                 <span className="font-semibold">{o.prize_name}</span>
-                <span className="text-graphite">at {slugOf.get(o.hackathon_id) ?? `event #${o.hackathon_id}`}{o.note ? ` · ${o.note}` : ""}</span>
+                <span className="text-muted">at {slugOf.get(o.hackathon_id) ?? `event #${o.hackathon_id}`}{o.note ? ` · ${o.note}` : ""}</span>
                 <form action={deleteOverride} className="ml-auto">
                   <input type="hidden" name="hackathon_id" value={o.hackathon_id} />
                   <input type="hidden" name="prize_name" value={o.prize_name} />
@@ -106,7 +106,7 @@ async function PrizeRules() {
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-graphite">No overrides. Add one when a specific prize deserves a different tier, like a sponsor challenge that was genuinely hard.</p>
+          <p className="mt-4 text-muted">No overrides. Add one when a specific prize deserves a different tier, like a sponsor challenge that was genuinely hard.</p>
         )}
         <ActionForm action={saveOverride} submitLabel="Add override" className="mt-6 grid gap-4 min-[800px]:grid-cols-[1fr_2fr_0.8fr_1.4fr]">
           <div>

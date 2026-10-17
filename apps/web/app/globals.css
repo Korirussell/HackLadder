@@ -2,56 +2,159 @@
 
 /* =========================================================
    Design tokens. These mirror design/reference.html exactly
-   (CLAUDE.md §4); tests/tokens.test.ts keeps them in sync.
+   (CLAUDE.md §4.1); tests/tokens.test.ts keeps them in sync.
+   Four themes, switched with data-theme on <html> before first
+   paint (app/layout.tsx). Paper is also the no-JS default.
    ========================================================= */
 
-@theme {
-  /* Only our six colors exist: no default palette to reach for. */
-  --color-*: initial;
-  --color-paper: #f6f3ec; /* page background (never pure white) */
-  --color-ink: #17140f; /* text, primary buttons, rules under section heads */
-  --color-signal: #ff5b14; /* THE accent: mark, rating up, focus rings. Nothing else. */
-  --color-tile: #ece7de; /* rail tiles, inputs, event cards, quiet surfaces */
-  --color-graphite: #6f685e; /* secondary text, rating down */
-  --color-rule: #ddd6ca; /* hairlines between rows */
+:root,
+[data-theme="paper"] {
+  --bg: #f2eee5;
+  --grid: #dcd5c7;
+  --win: #fffdf8;
+  --chrome: #e9e3d8;
+  --chrome-2: #ddd6c9;
+  --ink: #17140f;
+  --muted: #6f685e;
+  --line: #d6cfc2;
+  --accent: #ff5b14;
+  --accent-ink: #ffffff;
+  --select: #2747ff;
+  --select-ink: #ffffff;
+  --shadow: 0 1px 0 #fff inset, 0 18px 40px -18px rgba(40, 30, 10, 0.35);
+  --rail: #17140f;
+  --rung: #ff5b14;
+  color-scheme: light;
+}
 
-  --text-hero: clamp(64px, 9.4vw, 164px);
-  --text-section: clamp(48px, 6.4vw, 104px);
-  --text-sub: clamp(22px, 2.2vw, 32px);
+[data-theme="sumi"] {
+  --bg: #171512;
+  --grid: #2a2621;
+  --win: #211e1a;
+  --chrome: #2a2622;
+  --chrome-2: #35302a;
+  --ink: #f2eee5;
+  --muted: #a39b8e;
+  --line: #3a352e;
+  --accent: #ff6a26;
+  --accent-ink: #171512;
+  --select: #6b85ff;
+  --select-ink: #0e0e12;
+  --shadow: 0 0 0 1px #2e2a24, 0 24px 50px -20px rgba(0, 0, 0, 0.6);
+  --rail: #f2eee5;
+  --rung: #ff6a26;
+  color-scheme: dark;
+}
+
+[data-theme="sakura"] {
+  --bg: #ece8fa;
+  --grid: #d3cbf0;
+  --win: #ffffff;
+  --chrome: #e4def8;
+  --chrome-2: #d6cdf4;
+  --ink: #1b1530;
+  --muted: #6c6488;
+  --line: #dcd4f5;
+  --accent: #ff3d7f;
+  --accent-ink: #ffffff;
+  --select: #1b1530;
+  --select-ink: #d4ff3a;
+  --shadow: 0 1px 0 #fff inset, 0 20px 44px -20px rgba(60, 30, 140, 0.35);
+  --rail: #1b1530;
+  --rung: #ff3d7f;
+  color-scheme: light;
+}
+
+[data-theme="midnight"] {
+  --bg: #050507;
+  --grid: #1e1e2a;
+  --win: #0f0f15;
+  --chrome: #191922;
+  --chrome-2: #24242f;
+  --ink: #f3f1fa;
+  --muted: #8e8aa3;
+  --line: #26263a;
+  --accent: #ff2e93;
+  --accent-ink: #0b0b0f;
+  --select: #9b8cff;
+  --select-ink: #0b0b0f;
+  --shadow: 0 0 0 1px #2a2a3a, 0 30px 60px -20px rgba(255, 46, 147, 0.18);
+  --rail: #f3f1fa;
+  --rung: #ff2e93;
+  color-scheme: dark;
+}
+
+@theme {
+  /* Only the theme tokens exist as colors: no default palette to reach for. */
+  --color-*: initial;
+
+  --text-hero: clamp(64px, 9vw, 156px);
+  --text-title: clamp(56px, 7.5vw, 128px);
+  --text-section: clamp(48px, 6vw, 96px);
+  --text-closing: clamp(56px, 8.5vw, 140px);
+  --text-sub: clamp(20px, 2vw, 28px);
   --text-sub--line-height: 1.22;
   --text-sub--letter-spacing: -0.02em;
-  --text-body: 17px;
+  --text-body: 16px;
   --text-body--line-height: 1.5;
 
-  --radius-button: 14px;
-  --radius-tile: 16px;
-  --radius-search: 20px;
-  --radius-card: 24px;
+  --radius-button: 10px;
+  --radius-tile: 13px;
+  --radius-search: 10px;
+  --radius-card: 14px;
+  --radius-win: 14px;
 
-  --spacing-rail: 96px;
-  --container-content: 1240px;
+  --spacing-menu: 34px;
+  --spacing-rail: 100px;
+  --container-content: 1440px;
 }
 
 @theme inline {
+  --color-bg: var(--bg);
+  --color-grid: var(--grid);
+  --color-win: var(--win);
+  --color-chrome: var(--chrome);
+  --color-chrome-2: var(--chrome-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-select: var(--select);
+  --color-select-ink: var(--select-ink);
+
   --font-sans: var(--font-bricolage), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --shadow-win: var(--shadow);
 }
 
 @layer base {
+  html,
   body {
-    background: var(--color-paper);
-    color: var(--color-ink);
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  body {
     font-family: var(--font-sans);
     font-variation-settings: "opsz" 14;
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+    overflow-x: hidden;
   }
 
   :focus-visible {
-    outline: 3px solid var(--color-signal);
-    outline-offset: 3px;
-    border-radius: 6px;
+    outline: 2px solid var(--select);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--select);
+    color: var(--select-ink);
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -61,7 +164,7 @@
   }
 }
 
-/* Hero and section display type: wght 800, opsz 96, wdth 82 (§4.2). */
+/* Hero, title and section display type: wght 800, opsz 96, wdth 82 (§4.2). */
 @utility display {
   font-weight: 800;
   font-variation-settings:
@@ -78,12 +181,49 @@
     "opsz" 96,
     "wdth" 78;
   letter-spacing: -0.06em;
-  line-height: 0.8;
+  line-height: 0.85;
 }
 
-/* Big stats (odds, rating): wdth 80. */
+/* Big stats (odds, rating): wdth 76-78. */
 @utility stat {
   font-weight: 800;
-  font-variation-settings: "wdth" 80;
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 78;
   letter-spacing: -0.05em;
+  line-height: 0.85;
+}
+
+/* System chrome text: the OS speaking, never content (§4.2). */
+@utility sys {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+/* ---------- boot screen (§4.5): shown only while <html> has .booting ---------- */
+.boot {
+  display: none;
+}
+html.booting .boot {
+  display: grid;
+}
+.boot.done {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.45s 0.1s,
+    visibility 0s 0.6s;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.booting .boot {
+    display: none;
+  }
+}
+
+/* ---------- warped grid lines ---------- */
+.warp path {
+  fill: none;
+  stroke: var(--grid);
+  stroke-width: 1;
 }

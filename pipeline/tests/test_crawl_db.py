@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +14,7 @@ import pytest
 from conftest import read_fixture
 
 from hackladder.crawl.http import FetchFailedError, FetchResult
-from hackladder.crawl.listing import FULL_JOB, LIST_URL, crawl_list
+from hackladder.crawl.listing import FULL_JOB, LIST_URL, SEARCH_URL, crawl_list, search_mlh_events
 from hackladder.db import get_checkpoint
 from hackladder.load.hackathons import upsert_hackathons
 from hackladder.mlh import SEASON_URL, apply_matches, crawl_mlh_seasons
@@ -124,6 +124,21 @@ def test_incremental_crawl_stops_at_settled_events(conn: psycopg.Connection[Any]
     result = crawl_list(Pages(pages), conn, tmp_path, mode="incremental", cutoff=date(2026, 8, 1))
     assert result.pages == 2
     assert "page 2" in result.stopped
+
+
+def test_recent_mlh_events_are_searched_by_name(conn: psycopg.Connection[Any], tmp_path: Path) -> None:
+    conn.execute(
+        "insert into public.mlh_events (source_id, season, name, slug, starts_at, ends_at, format)"
+        " values ('test-a', '2027', 'Test Hacks', 'test-hacks', now() - interval '3 days',"
+        "         now() - interval '2 days', 'physical'),"
+        "        ('test-b', '2027', 'Old Hacks', 'test-old-hacks', now() - interval '400 days',"
+        "         now() - interval '399 days', 'physical')"
+    )
+    pages = {SEARCH_URL.format(query="Test%20Hacks"): list_page(5000)}
+    fetcher = Pages(pages)
+    found = search_mlh_events(fetcher, conn, tmp_path, since=date.today() - timedelta(days=60))
+    assert fetcher.requested == [SEARCH_URL.format(query="Test%20Hacks")]  # the old event isn't searched
+    assert (found.searched, found.inserted, found.failed) == (1, 9, 0)
 
 
 def test_mlh_crawl_and_matching(conn: psycopg.Connection[Any], tmp_path: Path) -> None:

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Literal, Protocol
+from urllib.parse import quote
 
 from hackladder.crawl.cache import store_raw
 from hackladder.crawl.http import FetchFailedError, FetchResult
@@ -26,6 +27,7 @@ from hackladder.load.hackathons import upsert_hackathons
 from hackladder.parse import parse_hackathon_list
 
 LIST_URL = "https://devpost.com/api/hackathons?status[]=ended&order_by=deadline&page={page}"
+SEARCH_URL = "https://devpost.com/api/hackathons?status[]=ended&search={query}"
 FULL_JOB = "list:full"
 
 Mode = Literal["full", "incremental"]
@@ -111,4 +113,53 @@ def crawl_list(
             result.stopped = f"every event on page {page} ended before {cutoff}"
             break
         page += 1
+    return result
+
+
+@dataclass
+class SearchResult:
+    searched: int = 0
+    hackathons: int = 0
+    inserted: int = 0
+    failed: int = 0
+
+
+def search_mlh_events(client: Fetcher, conn: Connection, raw_root: Path, *, since: date) -> SearchResult:
+    """Look up every MLH event that ended since ``since`` by name, and load what Devpost returns.
+
+    The deadline order has many ties (dozens of events end the same weekend) and their order
+    shifts between requests, so paging can skip an event: DubHacks '26 was missed this way (§6.6).
+    Search is fuzzy, so unrelated events come back too; they're real events and harmless.
+    """
+    names = [
+        str(r[0])
+        for r in conn.execute(
+            "select distinct name from public.mlh_events"
+            " where ends_at::date >= %s and ends_at < now() order by name",
+            (since,),
+        ).fetchall()
+    ]
+    result = SearchResult()
+    for name in names:
+        url = SEARCH_URL.format(query=quote(name))
+        result.searched += 1
+        try:
+            fetched = client.get(url)
+        except FetchFailedError as exc:
+            record_failure(conn, url, "hackathon_list", exc.status, exc.error)
+            conn.commit()
+            result.failed += 1
+            continue
+        path = store_raw(raw_root, url, fetched.text) if fetched.status == 200 else None
+        record_raw_page(conn, url, "hackathon_list", fetched.status, str(path) if path else None)
+        if fetched.status != 200:
+            record_failure(conn, url, "hackathon_list", fetched.status, f"HTTP {fetched.status}")
+            conn.commit()
+            result.failed += 1
+            continue
+        hackathons = parse_hackathon_list(fetched.text).hackathons
+        counts = upsert_hackathons(conn, hackathons)
+        conn.commit()
+        result.hackathons += len(hackathons)
+        result.inserted += counts.inserted
     return result

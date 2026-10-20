@@ -21,7 +21,7 @@ from hackladder.crawl.cache import CachedFetcher, iter_cached_pages
 from hackladder.crawl.check import CheckedProject, CheckReport, normalize_event_url, run_check
 from hackladder.crawl.events import crawl_events
 from hackladder.crawl.http import PoliteClient
-from hackladder.crawl.listing import crawl_list
+from hackladder.crawl.listing import crawl_list, search_mlh_events
 from hackladder.mlh import apply_matches, crawl_mlh_seasons
 from hackladder.parse import ParseError, ProjectPage, parse_project
 from hackladder.parse.common import host_of
@@ -238,14 +238,25 @@ def crawl_list_command(
                 cutoff=date.today() - timedelta(days=settle_days) if incremental else None,
                 max_pages=max_pages, restart=restart,
             )  # fmt: skip
+            # Paging the deadline order can skip events (§6.6), so look up recent MLH events by name.
+            found = (
+                search_mlh_events(client, conn, cache_dir, since=date.today() - timedelta(days=settle_days))
+                if incremental
+                else None
+            )
             stats.pages_fetched = client.requests_made
-            stats.events_added = result.inserted
-            stats.summary = asdict(result)
+            stats.events_added = result.inserted + (found.inserted if found else 0)
+            stats.summary = {**asdict(result), **({"mlh_search": asdict(found)} if found else {})}
     typer.echo(
         f"pages {result.first_page}-{result.first_page + max(result.pages - 1, 0)}:"
         f" {result.hackathons} hackathons ({result.inserted} new, {result.updated} updated)."
         f" Stopped: {result.stopped}."
     )
+    if found:
+        typer.echo(
+            f"searched {found.searched} recent MLH events by name: {found.inserted} new hackathons"
+            f" ({found.failed} searches failed)."
+        )
 
 
 @mlh_app.command("crawl")

@@ -91,15 +91,15 @@ def test_crawl_load_rate_publish(conn: psycopg.Connection[Any]) -> None:
     assert (summary.events, summary.people, summary.ranked) == (1, 9, 0)  # one event: everyone provisional
     assert q("select count(*) from public.ratings") == (9,)
     assert q("select count(*) from public.ratings_next") == (0,)  # swapped in and cleared
-    best = q("select a.source_id from public.ratings r join public.accounts a on a.person_id = r.person_id"
-             " order by r.score desc limit 1")  # fmt: skip
-    assert best is not None
-    assert best[0] in {
-        "aaravwattal",
-        "krishparikh",
-        "jamesc27",
-        "jaykhem",
-    }
+    score = dict(
+        conn.execute(
+            "select a.source_id, r.score from public.ratings r"
+            " join public.accounts a on a.person_id = r.person_id"
+        ).fetchall()
+    )
+    # Grand prize team > the two track winners; NilsIrl's extra prize breaks their tie (§8.1).
+    assert score["aaravwattal"] > score["katielb"]
+    assert score["NilsIrl"] > score["katielb"]
     assert q("select series_id is not null from public.hackathons where slug = 'treehacks-2024'") == (True,)
     snap = q(
         "select config_snapshot -> 'prize_rules' -> 0 ->> 'name' from public.pipeline_runs where job = 'rate'"

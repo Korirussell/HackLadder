@@ -62,10 +62,11 @@ def test_mlh_linking_to_devpost_is_exact() -> None:
     assert (d.hackathon_id, d.score, d.status) == (12, 1.0, "auto")
 
 
-def test_partial_name_is_suggested_not_auto() -> None:
-    d = match_one(mlh("Berkeley Cal Hacks Fall Showcase", date(2024, 10, 19)), FIELD)
-    assert d.status == "suggested"
-    assert d.hackathon_id == 10
+def test_contained_name_within_a_day_is_auto_but_further_off_is_suggested() -> None:
+    near = match_one(mlh("Berkeley Cal Hacks Fall Showcase", date(2024, 10, 19)), FIELD)
+    assert (near.hackathon_id, near.status) == (10, "auto")
+    far = match_one(mlh("Berkeley Cal Hacks Fall Showcase", date(2024, 10, 17)), FIELD)
+    assert (far.hackathon_id, far.status) == (10, "suggested")
 
 
 def test_two_close_candidates_need_review() -> None:

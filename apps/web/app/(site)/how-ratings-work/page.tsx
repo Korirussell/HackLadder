@@ -14,9 +14,9 @@ export const metadata: Metadata = {
 // Simulation floors and the last measured results (CLAUDE.md §8.5). The rating-quality test
 // in pipeline/tests asserts the floors on every CI run.
 const SIMULATION = [
-  { metric: "Hacker rank vs true skill (3+ events)", floor: "≥ 0.55", measured: "0.59" },
+  { metric: "Hacker rank vs true skill (3+ events)", floor: "≥ 0.55", measured: "0.62" },
   { metric: "Event rating vs true win odds", floor: "≥ 0.75", measured: "0.84" },
-  { metric: "Series rating vs true prestige", floor: "≥ 0.80", measured: "0.89" },
+  { metric: "Series rating vs true prestige", floor: "≥ 0.80", measured: "0.88" },
   { metric: "Beginner jams in the event top 20", floor: "0", measured: "0" },
   { metric: "Planted best duo's rank", floor: "top 10", measured: "#1" },
 ];
@@ -39,7 +39,8 @@ export default async function Method() {
             <p>
               Each hackathon becomes a ranking of every team that submitted: grand prizes first, then main-track winners, then
               sponsor prizes, then tech prizes like &ldquo;best use of&rdquo;, then everyone who submitted and didn&apos;t place, tied.
-              Your team&apos;s result updates every member&apos;s rating, replayed in date order from the first event.
+              Your team&apos;s result updates every member&apos;s rating, replayed in date order from the first event. Bigger
+              events move ratings more: winning against 150 teams is worth about 1.5 times as much as winning against 30.
             </p>
             <p>
               Your rating is a cautious estimate: <b>1000 + 40 × (skill − 3 × uncertainty)</b>. Everyone starts near 1000, and a
@@ -89,6 +90,11 @@ export default async function Method() {
             count as unrated average players. A person on two projects at one event keeps only their best-placed one.
           </p>
           <p>
+            Plackett-Luce on its own moves ratings less the more teams there are, so a win at an 11-team event counted three
+            times as much as one at a 150-team event. Each event&apos;s update is scaled by <code>(teams / 50)^0.75</code>, which
+            makes a bigger field worth more.
+          </p>
+          <p>
             The displayed rating is <code>1000 + 40 × (μ − 3σ)</code>, a conservative lower bound: a new hacker has μ = 25, σ = 25/3,
             so starts at 1000.
           </p>
@@ -107,10 +113,11 @@ export default async function Method() {
           </p>
         </MathNote>
 
-        <MathNote title="Duos and schools">
+        <MathNote title="Crews and schools">
           <p>
-            Duo score = (placements + 1)/(events + 4) + 0.5 × overperformance × events/(events + 3), for pairs with at least three
-            events together. A school&apos;s rating is the mean of its top 10 ranked hackers who were active that season, and a school
+            A crew is two or more people who were on the same team at two or more events. Crew score = (placements + 1)/(events
+            + 4) + 0.5 × overperformance × events/(events + 3), where overperformance is how far the team finished above what its
+            ratings predicted. A school&apos;s rating is the mean of its top 10 ranked hackers who were active that season, and a school
             needs five rated hackers to appear. Schools come only from hackers who claimed their profile.
           </p>
         </MathNote>

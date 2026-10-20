@@ -310,5 +310,5 @@ def rate() -> None:
         summary = run_ratings(conn)
     typer.echo(
         f"Rated {summary.people} people ({summary.ranked} ranked) across {summary.events} events;"
-        f" {summary.series} series, {summary.duos} duos; event noise {summary.noise:.2f}."
+        f" {summary.series} series, {summary.crews} crews; event noise {summary.noise:.2f}."
     )

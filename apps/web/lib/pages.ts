@@ -41,7 +41,7 @@ export type HackerPage = {
   history: { ends_on: string | null; score: number; event: string }[];
   events: HackerEvent[];
   teammates: { slug: string; name: string; events: number }[];
-  best_duo: { slug: string; name: string; events: number; score: number | null } | null;
+  best_crew: { members: { slug: string; name: string }[]; events: number; score: number | null } | null;
   toughest_win: { slug: string; title: string; prize: string; win_odds: number | null } | null;
   active_since: string | null;
 };

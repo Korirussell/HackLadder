@@ -4,17 +4,17 @@ export const MENU = [
   { href: "/hackers", label: "Hackers" },
   { href: "/schools", label: "Schools" },
   { href: "/events", label: "Events" },
-  { href: "/duos", label: "Duos" },
+  { href: "/crews", label: "Crews" },
   { href: "/how-ratings-work", label: "Method" },
 ] as const;
 
-export type IconName = "hackers" | "schools" | "events" | "duos" | "profile";
+export type IconName = "hackers" | "schools" | "events" | "crews" | "profile";
 
 export const DESKTOP: { href: string; label: IconName }[] = [
   { href: "/hackers", label: "hackers" },
   { href: "/schools", label: "schools" },
   { href: "/events", label: "events" },
-  { href: "/duos", label: "duos" },
+  { href: "/crews", label: "crews" },
   { href: "/me", label: "profile" },
 ];
 

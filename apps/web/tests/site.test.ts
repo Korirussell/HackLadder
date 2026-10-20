@@ -37,7 +37,7 @@ describe("navigation", () => {
     expect(isCurrent("/hackers", "/h/maya")).toBe(true);
     expect(isCurrent("/events", "/series/treehacks")).toBe(true);
     expect(isCurrent("/events", "/e/x")).toBe(true);
-    expect(isCurrent("/duos", "/duosx")).toBe(false);
+    expect(isCurrent("/crews", "/crewsx")).toBe(false);
     expect(isCurrent("/me", "/claim")).toBe(true);
   });
 });

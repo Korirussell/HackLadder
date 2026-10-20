@@ -19,7 +19,7 @@ from hackladder.config import RatingConfig, load_rating_config
 from hackladder.db import Connection
 from hackladder.rate.crews import crews
 from hackladder.rate.events import analyze, series_key
-from hackladder.rate.model import Event, Team, display, replay, team_rank
+from hackladder.rate.model import Event, Team, display, prize_bonus, replay, team_rank
 
 MIN_SCHOOL_MEMBERS = 5
 SCHOOL_TOP_N = 10
@@ -68,7 +68,13 @@ def load_events(
         slug = meta[hid][0]
         tiers = [config.prize_tiers.tier(name, slug) for name in prizes]
         teams[hid].append(
-            Team(str(key), team_rank(tiers, bool(is_winner)), tuple(sorted(people)), int(anonymous))
+            Team(
+                str(key),
+                team_rank(tiers, bool(is_winner)),
+                tuple(sorted(people)),
+                int(anonymous),
+                prize_bonus(tiers),
+            )
         )
     ends = dict(
         conn.execute("select id, ends_on from public.hackathons where id = any(%s)", (list(meta),)).fetchall()

@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# Saved pages and applied migrations stay byte-for-byte as they are.
+pipeline/tests/fixtures/** -text
+supabase/migrations/** -text

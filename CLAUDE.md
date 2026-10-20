@@ -146,9 +146,9 @@ Two families, each with one job:
 
 - **Menu bar** (fixed, 34px, translucent with blur):
   - Left: the logo glyph and "HackLadder".
-  - Middle: nav items Hackers, Schools, Events, Duos, Method. The active item takes `--select`.
+  - Middle: nav items Hackers, Schools, Events, Crews, Method. The active item takes `--select`.
   - Right: the **countdown in timecode format** `DD:HH:MM:SS` to the next big event, with an accent dot. It replaces Brand Appart's local clock.
-- **Desktop icons** (fixed, left): the Brand Appart rail, reskinned. Each is a 52px rounded tile with a lowercase label under it: hackers, schools, events, duos, profile. The current page's tile takes `--select`.
+- **Desktop icons** (fixed, left): the Brand Appart rail, reskinned. Each is a 52px rounded tile with a lowercase label under it: hackers, schools, events, crews, profile. The current page's tile takes `--select`.
 - **Claim button:** fixed top-right below the menu bar, in ink.
 - **Windows:** every block of content lives in a window.
   - The title bar has three lights (the first in accent), a file-style title (`search.app`, `~/ladder`, `rating_history`, `treehacks_2026.mov`) and right-aligned meta.
@@ -280,7 +280,7 @@ hackladder/
 │   │   ├── parse/             ← pure functions: HTML → dataclasses
 │   │   ├── load/              ← upsert into Postgres
 │   │   ├── resolve/           ← entity resolution
-│   │   ├── rate/              ← rating replay, duos, event analysis
+│   │   ├── rate/              ← rating replay, crews, event analysis
 │   │   ├── schools/           ← school normalization
 │   │   ├── publish/           ← build "gold" tables the site reads
 │   │   └── cli.py             ← `hl crawl|parse|rate|analyze|publish|check`
@@ -458,7 +458,7 @@ Accounts are not people. Some people have two Devpost accounts, and there are ma
 - `rating_history(person_id, hackathon_id, ends_on, score_before, score_after)`, for the profile chart and the "you moved" emails
 - `hackathon_strength(hackathon_id pk, field_size, field_mean, top_field, elite_count, win_odds, event_rating, judging_corr)`
 - `series_strength(series_id pk, editions, rating, best_hackathon_id)`
-- `pair_synergy(person_a, person_b, events_together, placements_together, overperformance, score)`
+- `crews(members bigint[], size, events_together, placements_together, overperformance, score)`: public only while every member exists and none is hidden
 - `school_ratings(school_id, season, top10_avg, members_rated, rank)`
 
 Write all of these into `_next` shadow tables, then swap them in one transaction, so the site never reads a half-built state.
@@ -490,6 +490,7 @@ The prototype in `pipeline/prototype/` is validated. Port its logic into `src/ha
 - Each event becomes a ranking by prize tier (§6.5): 1 grand / overall, 2 main track or overall runner-up (also a winner badge with no prize name), 3 sponsor challenge, 4 MLH or "best use of X" tech prize, then everyone who submitted but didn't place, tied (this group includes tier 5, "not a placement").
 - Each project's entry at each event counts on its own (§15). A team is rated as its members, including anonymous seats (private/deleted accounts), which count as unrated average players.
 - A person on two projects at one event keeps only their best-placed one (`dedupe_people`).
+- **Field-size correction:** Plackett-Luce divides every update by c ≈ √(teams), which made a win at an 11-team event worth 3× one at a 150-team event. Each event's change in μ, and its shrink in σ, are scaled by `(teams / 50)^0.75` (`field_scale`, capped at 6), so a bigger field is worth more (§15).
 - Display score: `1000 + 40 × (μ − 3σ)`, so new hackers start at about 1000 and a single lucky win can't top the board.
 - Leaderboard eligibility: at least 3 rated events (the prototype used 2; **use 3**). Below that, the profile is labeled "Provisional".
 
@@ -502,9 +503,9 @@ The prototype in `pipeline/prototype/` is validated. Port its logic into `src/ha
 - Series rating is the mean of edition z-scores, shrunk by n/(n+1).
 - `judging` is the rank correlation between pre-event team strength and finish. It's shown on event pages as context, not used in the rating.
 
-### 8.3 Duos (`pair_synergy`)
+### 8.3 Crews (`crews`)
 
-Pairs need at least 3 events together. Score = (placements + 1)/(events + 4) + 0.5 × overperformance × events/(events + 3).
+A crew is two or more people who were on the same team at 2 or more events (`rate/crews.py`). A group is kept only if no bigger group has exactly the same events, so three people who always hack together are one crew, not also three pairs. Score = (placements + 1)/(events + 4) + 0.5 × overperformance × events/(events + 3). (Replaced duos, pairs with 3+ events, on 2026-10-20.)
 
 ### 8.4 Schools
 
@@ -516,11 +517,11 @@ School rating = mean score of the school's top 10 non-provisional hackers who we
 
 | Metric | Floor | Last measured |
 |---|---|---|
-| Hacker rank correlation with true skill (3+ events) | ≥ 0.55 | 0.59 |
+| Hacker rank correlation with true skill (3+ events) | ≥ 0.55 | 0.62 |
 | Event rating vs true win odds | ≥ 0.75 | 0.84 |
-| Series rating vs true prestige | ≥ 0.80 | 0.89 |
+| Series rating vs true prestige | ≥ 0.80 | 0.88 |
 | Beginner jams in the event top 20 | 0 | 0 |
-| Planted synergy duo rank | top 10 | #1 |
+| Planted synergy duo's rank among crews | top 10 | #1 |
 
 ### 8.6 Known issue to fix before launch (Phase 1 task)
 
@@ -531,6 +532,8 @@ School rating = mean score of the school's top 10 non-provisional hackers who we
 - (c) Report a "proven" score that only counts events with at least k elite entrants.
 
 Pick whichever raises hacker correlation the most without breaking the other floors, and log the decision in §15.
+
+**2026-10-20:** (a) was tried on top of the field-size correction (strength factor exp(α·(top-10% pre-event μ−σ − global 90th pct)), α 0.5 to 1.5): hacker correlation fell from 0.62 to 0.55–0.59, so it was not adopted. The field-size correction alone raised it from 0.59 to 0.62. (b) and (c) are still open.
 
 ---
 
@@ -571,13 +574,13 @@ All public pages are statically generated with ISR (revalidated on publish throu
 |---|---|
 | `/` | Hero search, top 5 ladder, school top 10, hardest 3 events, methodology teaser, claim CTA (exactly the reference) |
 | `/hackers` | Full ladder, paginated (50 per page). Filters: season (all-time or a season), school, country (later). Shows "Provisional" count. |
-| `/h/[slug]` | Profile: name, rating, percentile, monthly change, rating-history chart, events table (event, date, placement, prize, rating change), frequent teammates, best duo, claim CTA or claimed badge, "Something wrong?" |
+| `/h/[slug]` | Profile: name, rating, percentile, monthly change, rating-history chart, events table (event, date, placement, prize, rating change), frequent teammates, best crew, claim CTA or claimed badge, "Something wrong?" |
 | `/schools` | School ladder, by season |
 | `/s/[slug]` | School page: rating, rank, top hackers, recent wins, rival schools nearby in rank |
 | `/events` | "Hardest to win" ranking of events and series, with filters: year, in-person or online, size |
 | `/e/[slug]` | Event page: odds, field strength, elite count, winners with ratings, judging correlation, link to Devpost, other editions in the series |
 | `/series/[slug]` | All editions, series rating trend |
-| `/duos` | Best duos board |
+| `/crews` | Best crews board (`/duos` redirects here) |
 | `/how-ratings-work` | Full public methodology: plain language first, math in expandable sections, simulation results |
 | `/claim` | Claim flow (§11) |
 | `/me` | Signed-in owner dashboard: edit links, bio, school; **profile theme picker** (Paper, Sumi, Sakura, Midnight, with a live preview of profile and share card); manage merges; corrections status; hide profile; email preferences |
@@ -639,14 +642,14 @@ Work top to bottom. Check items off here as they're done.
 - [x] Admin-configurable rating system (§8.7): config tables and change log; pipeline reads config from the DB; email sign-in; `/admin` pages for events, prize tiers, ranks and settings, change log
 - [x] Admin "Recompute ratings" button (starts the Rate workflow; needs GITHUB_DISPATCH_TOKEN) and the nightly rate + weekly crawl workflows
 - [x] Configurable prize tiers (`config/prize_tiers.toml`, `hl prizes`)
-- [x] Port ratings, event analysis, duos and simulation to `src/hackladder/rate/` with the §8.5 regression test (reproduces the prototype exactly); `hl rate` rebuilds and publishes everything
+- [x] Port ratings, event analysis, duos (now crews) and simulation to `src/hackladder/rate/` with the §8.5 regression test (reproduces the prototype exactly); `hl rate` rebuilds and publishes everything
 - [ ] Fix §8.6 isolated-pool inflation
 - [ ] School normalization for owner-entered schools (§16)
 - [ ] Backfill run plus spot-check report
 
 ### Phase 2: Site core
 - [x] OS chrome: menu bar with timecode countdown, desktop icons, claim button, window component, dock with theme switcher, warped-grid wallpaper, boot screen, mobile bottom bar
-- [x] Home, `/hackers`, `/h/[slug]`, `/schools`, `/s/[slug]`, `/events`, `/e/[slug]`, `/series/[slug]`, `/duos`, `/how-ratings-work`, `/search`, `/upcoming` (schedule only), sitemap, robots
+- [x] Home, `/hackers`, `/h/[slug]`, `/schools`, `/s/[slug]`, `/events`, `/e/[slug]`, `/series/[slug]`, `/crews`, `/how-ratings-work`, `/search`, `/upcoming` (schedule only), sitemap, robots
 - [ ] Season boards on `/hackers` (biggest climb, peak rating per Aug–Jul season, §8.7)
 - [x] Search RPC plus instant dropdown (⌘K)
 - [x] OG share cards (`/og/h|s|e/[slug]`, profile theme for claimed hackers)
@@ -748,6 +751,10 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-16: Claim and "remove me" bio codes are checked inside Postgres (`verify_claim`, `verify_removal`) with the `http` extension, which fetches `devpost.com/<username>` once and only reads `#portfolio-user-bio`. Why: a check in the web app could be skipped by calling the database directly, and this needs no service-role key in Vercel. 5 checks per hour per user or username.
 - 2026-10-16: Verifying a second Devpost account while you already own a profile merges it: the account moves to your person and the emptied person is deleted (§7.5). Schools an owner can't find arrive as `set_school` corrections; approving one creates or reuses the school.
 - 2026-10-16: The rating chart is server-rendered SVG (with a table alternative), not Recharts. Why: it's one line and a fill, and the profile ships no chart JavaScript (§12 bundle budget). Event pages show field strength in μ, not as a rating, because `field_mean`/`top_field` are mean final μ (§8.2).
+- 2026-10-20: Each event's rating update is scaled by `(teams / 50)^0.75` (capped at 6). Plain Plackett-Luce gave a fresh 1st place +45 at 11 teams and +9 at 300, so the live #1 and #2 were a single win at an 11-team event. Simulation (§8.5), before → after: hacker correlation 0.593 → 0.622, event 0.837 → 0.837, series 0.890 → 0.882, beginner jams in the event top 20 0 → 0, planted duo #1 → #1; fresh 1st-place gain at 11/33/147/300 teams +45/+27/+13/+9 → +14/+20/+30/+35. Powers 0.5–1.0 and reference sizes 30–80 all landed at 0.62; 0.75 is the smallest power where a bigger field is clearly worth more. A field-strength factor (§8.6 a) lowered hacker correlation and was dropped.
+- 2026-10-20: Duos become crews: groups of two or more with at least 2 events together, a group dropped only when a bigger group has exactly the same events. The owner asked for groups, not just pairs; the same score formula keeps small samples shrunk, and the planted duo is still #1 in the simulation.
+- 2026-10-20: Default prize tier 2 → 3, with new rules (beginner, fun awards, Hackathons UK, overall runner-ups, best overall variants, sponsor brackets / dashes / "by X", challenges, host and topic tracks). On the live data 1,039 of 3,314 prizes fell to the default, mostly sponsor and company prizes ("[SPONSOR] Figma", "Waymo") counted as track wins; 231 still do, now as sponsor prizes. Overall winners moved 74 → 127 tier-1 prizes.
+- 2026-10-20: MLH matches whose name is the MLH name or contains it, with the deadline within a day and no other same-named candidate, are accepted automatically. /admin/mlh already pre-checked exactly these; 186 of the 189 waiting on the live data were right, and the auto tab still lets an admin reject one.
 - 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN, and optionally REVALIDATE_SECRET (also a GitHub Actions secret).
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from hackladder.rate.duos import duos
+from hackladder.rate.crews import crews
 from hackladder.rate.events import EventRow, SeriesRow, analyze, series_key, spearman
 from hackladder.rate.model import Replay, display, replay
 from hackladder.rate.simulation import DUO, World, simulate
@@ -42,7 +42,7 @@ def _rank_corr(xs: list[float], ys: list[float]) -> float:
 def test_hacker_ratings_track_true_skill(outcome: Outcome) -> None:
     people = [u for u, s in outcome.rep.stats.items() if s.events >= 3]
     scores = [float(display(outcome.rep.ratings[u].mu, outcome.rep.ratings[u].sigma)) for u in people]
-    assert _rank_corr([outcome.world.skill[str(u)] for u in people], scores) >= 0.55  # last measured 0.59
+    assert _rank_corr([outcome.world.skill[str(u)] for u in people], scores) >= 0.55  # last measured 0.62
 
 
 def test_event_rating_tracks_true_win_odds(outcome: Outcome) -> None:
@@ -56,7 +56,7 @@ def test_series_rating_tracks_true_prestige(outcome: Outcome) -> None:
         prestige.setdefault(r.series, []).append(outcome.world.prestige[int(str(r.event))])
     multi = [s for s in outcome.series if s.editions >= 2]
     truth = [sum(prestige[s.series]) / len(prestige[s.series]) for s in multi]
-    assert _rank_corr(truth, [float(s.rating) for s in multi]) >= 0.80  # last measured 0.89
+    assert _rank_corr(truth, [float(s.rating) for s in multi]) >= 0.80  # last measured 0.88 (0.89 before)
 
 
 def test_no_beginner_jams_among_the_hardest_events(outcome: Outcome) -> None:
@@ -64,6 +64,6 @@ def test_no_beginner_jams_among_the_hardest_events(outcome: Outcome) -> None:
 
 
 def test_planted_duo_is_found(outcome: Outcome) -> None:
-    board = duos(outcome.rep.pairs)
-    rank = next(i for i, d in enumerate(board, 1) if {d.a, d.b} == set(DUO))
+    board = crews(outcome.rep.entries)
+    rank = next(i for i, c in enumerate(board, 1) if set(c.members) == set(DUO))
     assert rank <= 10  # last measured #1

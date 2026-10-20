@@ -4,14 +4,16 @@ from datetime import date
 
 import pytest
 
-from hackladder.rate.duos import duo_score, duos
+from hackladder.rate.crews import crew_score, crews
 from hackladder.rate.events import series_key
 from hackladder.rate.model import (
     NON_PLACING,
+    Entry,
     Event,
     Team,
     dedupe_people,
     display,
+    field_scale,
     percentiles,
     replay,
     team_rank,
@@ -69,7 +71,23 @@ def test_replay_rewards_winners_and_records_history() -> None:
     assert len(rep.snapshots[1].teams[2].members) == 1
     ann_e1 = next(h for h in rep.history if h.person == "ann" and h.event == "e1")
     assert ann_e1.score_after > ann_e1.score_before
-    assert rep.pairs[("ann", "bo")] == [1, 1, pytest.approx(rep.pairs[("ann", "bo")][2])]
+    [entry] = rep.entries  # only ann + bo were a team of two or more
+    assert (entry.members, entry.placed) == (("ann", "bo"), True)
+
+
+def _first_place_gain(teams: int) -> int:
+    field = [Team(f"t{i}", NON_PLACING, tuple(f"p{i}-{j}" for j in range(4))) for i in range(teams)]
+    field[0] = Team("t0", 1, field[0].members)
+    rep = replay([Event("e", date(2025, 1, 1), tuple(field))])
+    return display(rep.ratings["p0-0"].mu, rep.ratings["p0-0"].sigma) - 1000
+
+
+def test_winning_a_bigger_field_is_worth_more() -> None:
+    # Plain Plackett-Luce did the opposite (+45 at 11 teams, +9 at 300); field_scale fixes it (§15).
+    gains = [_first_place_gain(n) for n in (11, 33, 50, 147, 300)]
+    assert gains == sorted(gains)
+    assert gains[0] < 20 < gains[-1]
+    assert field_scale(50) == 1.0
 
 
 def test_events_with_one_team_are_skipped() -> None:
@@ -78,11 +96,20 @@ def test_events_with_one_team_are_skipped() -> None:
     assert rep.ratings == {}
 
 
-def test_duos_need_three_events() -> None:
-    pairs = {("a", "b"): [3, 2, 0.6], ("a", "c"): [2, 2, 1.0]}
-    [only] = duos(pairs)
-    assert (only.a, only.b, only.events, only.placements) == ("a", "b", 3, 2)
-    assert only.score == pytest.approx(duo_score(3, 2, 0.2))
+def test_crews_need_two_events_together() -> None:
+    entries = [Entry(("a", "b"), True, 0.3), Entry(("a", "b"), False, 0.1), Entry(("a", "c"), True, 1.0)]
+    [only] = crews(entries)
+    assert (only.members, only.events, only.placements) == (("a", "b"), 2, 1)
+    assert only.score == pytest.approx(crew_score(2, 1, 0.2))
+
+
+def test_a_crew_is_the_biggest_group_with_those_events() -> None:
+    abc = Entry(("a", "b", "c"), True, 0.5)
+    # a, b and c twice together: one crew of three, not also a+b, a+c and b+c
+    assert [c.members for c in crews([abc, abc])] == [("a", "b", "c")]
+    # a and b also hacked once without c: they're a crew of their own too, with three events
+    board = {c.members: c.events for c in crews([abc, abc, Entry(("a", "b", "d"), False, -0.2)])}
+    assert board == {("a", "b", "c"): 2, ("a", "b"): 3}
 
 
 @pytest.mark.parametrize(

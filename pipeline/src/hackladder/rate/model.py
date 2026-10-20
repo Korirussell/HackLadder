@@ -1,13 +1,13 @@
 """Hacker ratings: replay every event in date order through OpenSkill Plackett-Luce (§8.1).
 
-Ported from prototype/rate.py; the math is unchanged (§8: rerun the simulation before
-touching it). Pure functions over plain data, so the simulation test and the database run
-share exactly the same code.
+Ported from prototype/rate.py, plus the field-size correction (§15, 2026-10-20): each event's
+update is scaled by ``field_scale``. Rerun the simulation (§8.5) before touching the math.
+Pure functions over plain data, so the simulation test and the database run share exactly the
+same code.
 """
 
 from __future__ import annotations
 
-import itertools
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from dataclasses import dataclass, field
@@ -19,6 +19,14 @@ from openskill.models import PlackettLuce
 NON_PLACING = 5  # submitted but didn't place (tier 5 "prizes" land here too)
 TOP_FIELD_N = 10
 NO_PRIZE_NAME_RANK = 2  # a winner badge with no prize name counts like a main track win (§8.1)
+
+# Plackett-Luce divides every update by c ~ sqrt(teams), so on its own a win at an 11-team event
+# moved a rating 3x more than a win at a 150-team one. Scaling the update by (teams/50)^0.75
+# makes bigger fields worth more (§8.1, §15).
+FIELD_REF_TEAMS = 50
+FIELD_POWER = 0.75
+MAX_FIELD_SCALE = 6.0
+MIN_SIGMA = 0.5  # a scaled update can't make anyone (near) certain
 
 PersonId = Hashable
 
@@ -64,21 +72,32 @@ class Snapshot:
     pre_team_mu: tuple[float, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class Entry:
+    """One team's finish at one event, for crews (§8.3)."""
+
+    members: tuple[PersonId, ...]  # sorted, at least two named people
+    placed: bool
+    overperformance: float  # actual minus expected finish percentile
+
+
 @dataclass
 class Replay:
     ratings: dict[PersonId, Any] = field(default_factory=dict)  # openskill rating objects
     stats: dict[PersonId, PersonStats] = field(default_factory=lambda: defaultdict(PersonStats))
     history: list[HistoryRow] = field(default_factory=list)
     snapshots: list[Snapshot] = field(default_factory=list)
-    # (a, b) with a < b -> [events together, placements together, sum of actual-minus-expected]
-    pairs: dict[tuple[PersonId, PersonId], list[float]] = field(
-        default_factory=lambda: defaultdict(lambda: [0, 0, 0.0])
-    )
+    entries: list[Entry] = field(default_factory=list)  # teams of two or more named people
 
 
 def display(mu: float, sigma: float) -> int:
     """The public score: conservative skill on a familiar scale, new hacker ~ 1000 (§8.1)."""
     return round(1000 + 40 * (mu - 3 * sigma))
+
+
+def field_scale(teams: int) -> float:
+    """How strongly an event with this many (deduplicated) teams moves ratings; 1.0 at 50 teams."""
+    return min(MAX_FIELD_SCALE, float((teams / FIELD_REF_TEAMS) ** FIELD_POWER))
 
 
 def team_rank(prize_tiers: Iterable[int], is_winner: bool) -> int:
@@ -148,9 +167,14 @@ def replay(events: Iterable[Event]) -> Replay:
         actual = percentiles(ranks)
         expected = percentiles([-mu for mu in pre_team_mu])
         new = model.rate(lineups, ranks=ranks)
+        k = field_scale(len(teams))
 
         for t, team_new, a, e in zip(teams, new, actual, expected, strict=True):
-            for m, r in zip(t.members, team_new, strict=False):  # trailing anonymous seats discarded
+            for m, raw in zip(t.members, team_new, strict=False):  # trailing anonymous seats discarded
+                old = ratings[m]
+                # Scale the move in mu, and the shrink in sigma (as a power of the variance ratio).
+                sigma = max(MIN_SIGMA, old.sigma * (raw.sigma / old.sigma) ** k)
+                r = model.rating(mu=old.mu + k * (raw.mu - old.mu), sigma=sigma, name=str(m))
                 ratings[m] = r
                 s = out.stats[m]
                 s.events += 1
@@ -158,9 +182,6 @@ def replay(events: Iterable[Event]) -> Replay:
                 s.placements += t.rank < NON_PLACING
                 s.grand_prizes += t.rank == 1
                 out.history.append(HistoryRow(m, ev.id, ev.ends_on, before[m], display(r.mu, r.sigma)))
-            for pa, pb in itertools.combinations(sorted(t.members, key=str), 2):
-                p = out.pairs[(pa, pb)]
-                p[0] += 1
-                p[1] += t.rank < NON_PLACING
-                p[2] += a - e
+            if len(t.members) >= 2:
+                out.entries.append(Entry(tuple(sorted(t.members, key=str)), t.rank < NON_PLACING, a - e))
     return out

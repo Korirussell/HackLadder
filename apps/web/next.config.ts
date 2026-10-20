@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
     // Prerendering runs many workers against one small database; retry a page that times out.
     staticGenerationRetryCount: 2,
   },
+  // Duos became crews (groups of two or more); keep old links working.
+  async redirects() {
+    return [{ source: "/duos", destination: "/crews", permanent: true }];
+  },
   turbopack: {
     rules: {
       "*.css": {

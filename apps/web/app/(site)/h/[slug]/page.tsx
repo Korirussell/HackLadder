@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 
 import { Button, Change, Empty, PageTitle, Prop } from "@/components/site/bits";
 import { LoadingWin } from "@/components/site/loading";
@@ -102,13 +102,23 @@ async function Profile({ params }: Pick<PageProps<"/h/[slug]">, "params">) {
                 "none yet"
               )}
             </Prop>
-            <Prop label="best duo">
-              {h.best_duo ? (
-                <Link href={`/h/${h.best_duo.slug}`} className="hover:underline">
-                  with {h.best_duo.name}
-                </Link>
+            <Prop label="best crew">
+              {h.best_crew ? (
+                <span>
+                  with{" "}
+                  {h.best_crew.members
+                    .filter((m) => m.slug !== h.slug)
+                    .map((m, i, rest) => (
+                      <Fragment key={m.slug}>
+                        <Link href={`/h/${m.slug}`} className="hover:underline">
+                          {m.name}
+                        </Link>
+                        {i < rest.length - 2 ? ", " : i === rest.length - 2 ? " and " : ""}
+                      </Fragment>
+                    ))}
+                </span>
               ) : (
-                "needs 3 events together"
+                "needs 2 events with the same teammates"
               )}
             </Prop>
             <Prop label="active since">{monthYear(h.active_since, "long")}</Prop>

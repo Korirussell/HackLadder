@@ -23,7 +23,7 @@ export function Icon({ name }: { name: IconName }) {
           <path d="m10 9 5 3-5 3V9Z" fill="currentColor" />
         </svg>
       );
-    case "duos":
+    case "crews":
       return (
         <svg {...common} fill="currentColor">
           <circle cx="8" cy="8" r="3.5" />

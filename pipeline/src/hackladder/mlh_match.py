@@ -22,6 +22,7 @@ DATE_WINDOW_DAYS = 3  # Devpost's deadline is usually the MLH end date, give or 
 AUTO_SCORE = 0.85
 SUGGEST_SCORE = 0.5
 AUTO_MARGIN = 0.15  # the best candidate must beat the runner-up by this much to auto-accept
+LIKELY_MAX_DAYS = 1  # a same-named candidate this close to the MLH end date is accepted
 MAX_CANDIDATES = 3  # shown on /admin/mlh so a wrong suggestion is one click to fix
 
 _YEARS = re.compile(r"\b(19|20)\d{2}\b|'\d{2}\b")
@@ -147,7 +148,15 @@ def match_one(mlh: MlhRow, candidates: Sequence[DevpostRow]) -> MatchDecision:
     # An exact name no other candidate shares is a clear winner even when a similar name is close
     # behind ("HackSMU V" vs "HackCMU 2023").
     unique_exact = top.name_match == "exact" and all(c.name_match != "exact" for c in others)
-    if unique_exact or (top.score >= AUTO_SCORE and top.score - runner_up >= AUTO_MARGIN):
+    # "Likely right" (§15, 2026-10-20): the name is the MLH name, contains it or is contained by
+    # it, the deadline is within a day, and no other candidate's name does the same. /admin/mlh
+    # used to pre-check these for a batch confirm; 186 of 189 on the live data were right.
+    likely = (
+        top.name_match != "fuzzy"
+        and top.days <= LIKELY_MAX_DAYS
+        and all(c.name_match == "fuzzy" for c in others)
+    )
+    if unique_exact or likely or (top.score >= AUTO_SCORE and top.score - runner_up >= AUTO_MARGIN):
         return MatchDecision(mlh.id, top.hackathon_id, top.score, "auto", note, shown)
     if others:
         note += f"; runner-up {others[0].slug} at {others[0].score:.2f}"

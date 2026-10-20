@@ -20,7 +20,7 @@ describe("prize tiers match the pipeline", () => {
   });
 
   it("falls back to the default tier", () => {
-    expect(classify(rules, toml.default_tier, "Most Impactful Hack (4x Apple Watch)")).toEqual({
+    expect(classify(rules, toml.default_tier, "Nano Bio Lab (4x Apple Watch)")).toEqual({
       tier: toml.default_tier,
       reason: "default",
     });

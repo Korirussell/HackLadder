@@ -12,10 +12,12 @@
 # Patterns are case-insensitive Python regexes. By default they're matched against the prize
 # name with reward descriptions removed: "Best Use of X ($1k Cash [1st])" -> "Best Use of X".
 # Set match = "full" for a rule that needs the parenthesized/bracketed text ("[MLH]", "Sponsored by").
+# Rules are grouped by what they catch, not by tier: order matters, so a narrow rule (a runner-up
+# written in brackets) sits above the broad rule it would otherwise fall into.
 #
 # Every example must land in its rule's tier, or the tests fail. Add a real name when you add a rule.
 
-default_tier = 2  # unrecognized prizes are usually topic tracks ("Best Health Hack", "Most Impactful Hack")
+default_tier = 3  # unrecognized names are mostly sponsors and company prizes ("Waymo", "Assurant"); topic tracks have a rule
 
 [tiers]
 1 = "Grand prize / best overall / 1st overall"
@@ -28,8 +30,8 @@ default_tier = 2  # unrecognized prizes are usually topic tracks ("Best Health H
 [[rules]]
 name = "not a placement"
 tier = 5
-pattern = '\b(raffle|participation|attendance|honou?rable mention|highlighted project|featured project)\b'
-examples = ["Workshop Raffle Prizes ($10k in Prizes)", "Highlighted Project", "Honorable Mention"]
+pattern = '\b(raffle|participation|attendance|honou?rable mentions?|highlighted project|featured project|activities attended|event engagement|drawing contest)\b'
+examples = ["Workshop Raffle Prizes ($10k in Prizes)", "Highlighted Project", "Honorable Mention", "Honorable Mentions", "Most Activities Attended"]
 
 # ----------------------------------------------------------------------------- tier 4
 [[rules]]
@@ -40,36 +42,106 @@ pattern = '\bmlh\b|major league hacking'
 examples = ["[MLH] Best Use of ElevenLabs", "MLH: Best Domain Name from GoDaddy Registry", "Best Use of Vultr (MLH)"]
 
 [[rules]]
+name = "league prize (Hackathons UK)"
+tier = 4
+match = "full"
+pattern = '\bhackathons uk\b'
+examples = ["[Hackathons UK] Hackiest Hack"]
+
+[[rules]]
+name = "fun award"
+tier = 4
+pattern = '\b(useless|dumbest|joke|gag|funniest|wacky|questionable|failure to launch|didn.?t work|domain name|url|devpost page|vibes?|whimsical|goofy|prettiest|razzle dazzle|slayful|convuluted|convoluted|cinematic|sponsormaxxing|judged by an llm|friendship)\b|^most lit\b'
+examples = [
+  "Best Useless Hack",
+  "Most Questionable Use of 36 Hours",
+  "Best Domain Name from GoDaddy Registry",
+  "Best Enchanted Grove Vibes Hack",
+  "Most Wacky Hack (presented by Wordware)",
+]
+
+[[rules]]
 name = "best use of a technology"
 tier = 4
-pattern = '\b(best use of|powered by|built with|best hack using)\b'
+pattern = '\b(best uses? of|powered by|built with|best hack using|deployed on|application of)\b|^uses? of\b|\buse of (the )?\S+ api\b'
 examples = [
   "Best Use of Monster Generative AI APIs (4x XBox Series S [1st] & 1 million Monster API credits [2nd] & $400 Cash [3rd])",
   "Codegen: Best Use of AI Agents ($3k Cash)",
   "Best Use of Microsoft Azure",
+  "Best Uses of Human Delta API - 1st Place",
+  "Most Impactful Use of the X API by X",
+  "Best Deployed on Aedify",
 ]
 
-# ----------------------------------------------------------------------------- tier 1
+# ----------------------------------------------------------------------------- beginner awards (tier 3)
+# Above the overall rules, so "Best Beginner Hack Overall" and "Beginner - 1st Place" stay side awards.
+[[rules]]
+name = "beginner award"
+tier = 3
+pattern = '\b(beginners?|first[- ]?time(rs?)?|rookie|newbie|newcomer|novice)\b'
+examples = [
+  "Best Beginner Hack (4x Razer Keyboard + Mouse)",
+  "Best First-Time Hack",
+  "Best Beginner Hack Overall",
+  "HackNC Beginner - 1st Place",
+  "Best Rookie Hack",
+]
+
+# ----------------------------------------------------------------------------- overall (tier 1 and runners-up)
+[[rules]]
+name = "overall runner-up (2nd or 3rd overall)"
+tier = 2
+match = "full"
+pattern = '^(?!.*\b(1st|first)\b)(?=.*\boverall\b).*\b(2nd|3rd|second|third)\b'
+examples = ["Best Overall Hack (2nd)", "Best Overall - 3rd Place", "2nd - Best Overall Hack", "Best Overall: 2nd Place", "Best Overall 3rd"]
+
 [[rules]]
 name = "grand prize / overall winner"
 tier = 1
 pattern = '^(the )?(grand prize|best overall|overall|(1st|first)( place)?|winner)( (overall|winner|hackathon|prize))?$|\b(1st|first)( place)? overall\b|\boverall (winner|grand prize|1st|first)\b'
 examples = ["Grand Prize ($10k Cash)", "First Place", "First place hackathon", "1st Place Overall", "Best Overall", "Overall Winner"]
 
-# ----------------------------------------------------------------------------- tier 2
+[[rules]]
+name = "best overall / first overall"
+tier = 1
+pattern = '\bbest (overall|of show)\b|\bhack overall\b|^#1 best hack$|^(1st|first|1er)( (place|prize|lugar))?!?$|\b(1st|first)\b.*\boverall\b|^(the )?main prize$|^(1st|first) place \S*hacks?\S*( \d{4})?$|^\S*hacks?\S*\s*[-–—]?\s*(1st|first) place( prize)?$|\bgeneral (challenge |competition )?\s*[-–—]?\s*(1st|first) place\b|^(1st|first) place\s*[-–—]\s*general\b'
+examples = [
+  "Best Overall Hack",
+  "Best Overall Hack [Courtesy of Amplitude, Anthropic, OpenAI]",
+  "1st - Best Overall Hack",
+  "Best Hack Overall",
+  "#1 Best Hack",
+  "1st Place!",
+  "First Place SheHacks+ Overall",
+  "1st Place ElleHacks 2026",
+  "HackSheffield10 1st Place",
+  "VTHacks - 1st Place Prize",
+  "General Challenge — First Place",
+  "1st Place - General Challenge // 1re place – Défi général",
+  "The Golden Ticket – Best overall",
+]
+
 [[rules]]
 name = "overall runner-up / finalist"
 tier = 2
-pattern = '\b(2nd|3rd|second|third|runner[- ]?ups?|finalists?|top \d+)\b'
-examples = ["Second Place", "Third Place", "Runner Up", "Top 10"]
+pattern = '\b(2nd|3rd|second|third|runner[- ]?ups?|finalists?|top \d+)\b|^#[2-9] best hack$|^[2-9](nd|rd|th|do|er) (place|lugar)$'
+examples = ["Second Place", "Third Place", "Runner Up", "Top 10", "#2 Best Hack", "4th Place", "2do Lugar"]
 
+# ----------------------------------------------------------------------------- tracks named as tracks
 [[rules]]
 name = "track grand prize"
 tier = 2
 pattern = '\bgrand prize\b|\btrack\b'
 examples = ["Education Grand Prize (4x Quest 3)", "Blockchain & Security Grand Prize (4x JBL Partybox)", "Health Track Winner"]
 
-# ----------------------------------------------------------------------------- tier 3
+[[rules]]
+name = "track in brackets"
+tier = 2
+match = "full"
+pattern = '^[\[(](?!mini)[^\])]*\btracks?[\])]'
+examples = ["(Hardware Track) 4x Nintendo Switch 2 (w/ a game!)", "[TRACK] - Finance", "[Main Track] Most Creative", "[All Tracks] Best Hack"]
+
+# ----------------------------------------------------------------------------- tier 3: sponsors
 [[rules]]
 name = "sponsor prefix (Sponsor: Prize)"
 tier = 3
@@ -84,20 +156,92 @@ examples = [
 name = "sponsored by"
 tier = 3
 match = "full"
-pattern = '\bsponsored by\b|\bsponsor (prize|challenge|track)\b'
-examples = ["Most Likely to Become a Startup (Sponsored by OpenScout)"]
+pattern = '\bsponsored by\b|\bsponsor (prize|challenge|track)\b|\b(by|courtesy of|presented by)\s+\w'
+examples = [
+  "Most Likely to Become a Startup (Sponsored by OpenScout)",
+  "Best Health Hack by Sun Life",
+  "AI & Tech for Clinical Trials by Regeneron [Cash Prizes]",
+  "Best Healthcare Hack [Courtesy of Daylight Health]",
+]
 
+[[rules]]
+name = "sponsor in brackets ([Sponsor] Prize)"
+tier = 3
+match = "full"
+pattern = '^\[(?![^\]]*(hack|track|sase|soc\b|club|choice))[^\]]+\]'
+examples = ["[SPONSOR] Figma", "[1Password] Best Security Hack", "[Photon] Best iMessage Agent - 1st Place", "[NVIDIA] Beyond the Chatbot"]
+
+[[rules]]
+name = "challenge"
+tier = 3
+pattern = '\bchallenge\b|\bcase competition\b'
+examples = ["Cognition Company Challenge", "1st price - DAMM Challenge", "1st Place - Brim Financial Challenge", "CGI Challenge — First Place"]
+
+# ----------------------------------------------------------------------------- first places that aren't overall
+[[rules]]
+name = "first place, reward after it"
+tier = 1
+pattern = '^(1st|first) place\s*[-–—]\s*'
+examples = ["1st Place - Gaming Monitor", "1st Place - GeForce RTX 5060 8G Shadow 2x Oc"]
+
+[[rules]]
+name = "track first place"
+tier = 2
+pattern = '\b(1st|first)( place)?( prize)?!?$|^(1st|first) (place|price|prize)\b|^first in\b|\bwinner$|\bstream prize$|\bsubstream$|^gold( prizes?)?$'
+examples = [
+  "Developer - 1st Place",
+  "HackNC Frutiger Aero - 1st Place",
+  "1st Place Health & Healthcare - Garmin Smart Watches",
+  "First in Finance",
+  "Cities & Societies Winner",
+  "HealthTech & BioInnovation Stream Prize",
+  "Gold Prizes",
+]
+
+[[rules]]
+name = "sponsor prefix (Sponsor - Prize)"
+tier = 3
+pattern = '^(?!(best|most|the)\b)(?![^-–—]*hack)[^-–—:]{2,30}?\s?[-–—]>?\s'
+examples = ["Capital One - Best Financial Hack", "Cipher Tech Solutions - Digital Forensics", "Vivirion Solutions - Best Practical Healthcare Hack", "Reply -> Best Consultative Use of A l"]
+
+# ----------------------------------------------------------------------------- side awards and topic tracks
 [[rules]]
 name = "minor award"
 tier = 3
-pattern = "\\b(beginner|presentation|designs?|team ?work|wild ?card|people'?s choice|audience choice)\\b"
-examples = ["Best Beginner Hack (4x Razer Keyboard + Mouse)", "Best Presentation", "Best Designs", "Best Team Work", "Best Wild Card"]
+pattern = "\\b(presentation|design(s|ed)?|team ?work|wild ?card|people.?s choice|audience choice|solo|duo|underclass(men)?|graduate team|visiting team|virtual submission|new team|high ?school|pitch|ui/?ux|ux|choice|favou?rite|popular|crowd|president.?s pick|most fun|spirit of the hack|best attempt|best idea|themed?|startup|entrepreneur\\w*|business plan|business potential|minority|diversity|dei|liked)\\b"
+examples = [
+  "Best Presentation",
+  "Best Designs",
+  "Best Team Work",
+  "Best Wild Card",
+  "Best Solo Hack",
+  "Best UI/UX",
+  "Hacker's Choice Award",
+  "Most Likely to Become a Startup",
+]
 
-# ----------------------------------------------------------------------------- overrides
-# Promote or demote one prize at one event, e.g. a sponsor challenge that was genuinely hard:
-#
-# [[overrides]]
-# event = "treehacks-2024"                      # the event's Devpost subdomain
-# prize = "Intel: Best Use of Intel Developer Cloud ($10k Credits + 4x Lenovo AI PC [1st] & $4k Credits [2nd] & $2k Credits [3rd])"
-# tier = 3                                      # exact raw name, as `hl prizes` prints it
-# note = "Judged by Intel engineers; 40+ teams entered"
+[[rules]]
+name = "host track in brackets ([OwlHacks] Prize)"
+tier = 2
+match = "full"
+pattern = '^\[[^\]]*hack[^\]]*\]'
+examples = ["[OwlHacks] Philly Special", "[HACKUMASS] [Ethical AI] Best Theory and Plan"]
+
+[[rules]]
+name = "topic track"
+tier = 2
+pattern = '^(\S*hacks?\S*\s*[-–—]?\s*)?(best|most)\b.*\b(health\w*|wellness|wellbeing|med ?tech|education\w*|learning|sustainab\w*|environment\w*|climate|social|community|civic|financ\w*|fintech|hardware|software|ai|ml|artificial intelligence|data|security|cyber\w*|games?|gaming|game dev\w*|entertainment|media|art|accessib\w*|mobile|web|blockchains?|robotics|embedded|iot|developer|productivity|smart cities|space|sports|hci|agents?|enterprise|innovative|innovation|technical\w*|impact\w*)\b|^(health\w*|wellness|education\w*|sustainab\w*|environment\w*|social|community|civic|financ\w*|fintech|hardware|software|ai|ml|ai/ml|data|security|cyber\w*|games?|gaming|game dev\w*|entertainment|media|art|accessib\w*|mobile|web|blockchain|robotics|developer|productivity|space|sports|tech for good|mental health|patient\w*|physical ai|linguistics)\b|^best( [\w&/+.\x27’-]+){1,3}( (hack|project|app|team))?( [-–—] [\w .]{1,30})?$|^most\W+(innovative|creative|technical\w*|impactful|useful|accessible|efficient|sustainable)\b'
+examples = [
+  "Best Hardware Hack (4x Prusa 3D Printers)",
+  "Most Technically Complex Hack (4x Mac Mini)",
+  "Best Hack for Social Good",
+  "Best Health & Wellness",
+  "Sustainability & Humanitarian Challenges",
+  "AI/ML & Data",
+  "Best General Hack",
+  "HackNC Best Community Hack",
+  "Best Visualizations",
+  "Mental Health",
+  "Most Creative",
+  "Most \"Useful\" Hack",
+]

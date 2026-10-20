@@ -199,23 +199,21 @@ export async function getSchool(slug: string): Promise<SchoolPage | null> {
   return asPage<SchoolPage>(await rpc<unknown>("school_page", { p_slug: slug }, null));
 }
 
-export type DuoRow = {
+export type CrewRow = {
   rank: number;
-  a_slug: string;
-  a_name: string;
-  b_slug: string;
-  b_name: string;
+  members: { slug: string; name: string }[];
+  size: number;
   events: number;
   placements: number;
   overperformance: number | null;
   score: number | null;
 };
 
-export async function getDuos(page = 1, perPage = PER_PAGE): Promise<DuoRow[]> {
+export async function getCrews(page = 1, perPage = PER_PAGE): Promise<CrewRow[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("ratings");
-  return rpc<DuoRow[]>("duo_board", { p_limit: perPage, p_offset: (page - 1) * perPage }, []);
+  return rpc<CrewRow[]>("crew_board", { p_limit: perPage, p_offset: (page - 1) * perPage }, []);
 }
 
 export type RankTier = { name: string; top_percent: number | null; top_n: number | null; position: number };

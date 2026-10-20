@@ -17,7 +17,7 @@ from psycopg.types.json import Jsonb
 
 from hackladder.config import RatingConfig, load_rating_config
 from hackladder.db import Connection
-from hackladder.rate.duos import duos
+from hackladder.rate.crews import crews
 from hackladder.rate.events import analyze, series_key
 from hackladder.rate.model import Event, Team, display, replay, team_rank
 
@@ -31,7 +31,7 @@ class RateSummary:
     people: int
     ranked: int
     series: int
-    duos: int
+    crews: int
     noise: float
 
 
@@ -114,7 +114,7 @@ def run_ratings(conn: Connection) -> RateSummary:
         "rating_history",
         "hackathon_strength",
         "series_strength",
-        "pair_synergy",
+        "crews",
         "school_ratings",
     ):
         conn.execute(f"truncate public.{table}_next")
@@ -146,10 +146,11 @@ def run_ratings(conn: Connection) -> RateSummary:
             "insert into public.series_strength_next values (%s, %s, %s, %s)",
             [(series_ids[s.series], s.editions, s.rating, s.best_event) for s in series_rows],
         )
-        board = duos(rep.pairs)
+        board = crews(rep.entries)
         cur.executemany(
-            "insert into public.pair_synergy_next values (%s, %s, %s, %s, %s, %s)",
-            [(*sorted((d.a, d.b)), d.events, d.placements, d.overperformance, d.score) for d in board],  # type: ignore[type-var]
+            "insert into public.crews_next (members, events_together, placements_together,"
+            " overperformance, score) values (%s, %s, %s, %s, %s)",
+            [(sorted(c.members), c.events, c.placements, c.overperformance, c.score) for c in board],
         )
         cur.executemany(
             "insert into public.school_ratings_next values (%s, %s, %s, %s, %s)",

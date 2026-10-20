@@ -63,9 +63,9 @@ def test_real_prize_names(name: str, tier: int) -> None:
 
 
 def test_unmatched_names_get_the_default_tier() -> None:
-    decision = CONFIG.classify("Most Impactful Hack (4x Apple Watch Series 9)")
+    decision = CONFIG.classify("Nano Bio Lab (4x Apple Watch Series 9)")
     assert decision.is_default
-    assert decision.tier == CONFIG.default_tier == 2
+    assert decision.tier == CONFIG.default_tier == 3
 
 
 def test_strip_rewards() -> None:
@@ -162,7 +162,7 @@ def test_hl_prizes_filters(fixture_cache: Path) -> None:
     assert "default" in defaults.output
 
     one_event = runner.invoke(
-        app, ["prizes", "--cache-dir", str(fixture_cache), "--event", "share", "--tier", "2"]
+        app, ["prizes", "--cache-dir", str(fixture_cache), "--event", "share", "--tier", "3"]
     )
     assert one_event.exit_code == 0
     assert "Best Project Demo on Devpost" in one_event.output

@@ -141,6 +141,13 @@ match = "full"
 pattern = '^[\[(](?!mini)[^\])]*\btracks?[\])]'
 examples = ["(Hardware Track) 4x Nintendo Switch 2 (w/ a game!)", "[TRACK] - Finance", "[Main Track] Most Creative", "[All Tracks] Best Hack"]
 
+# The host's own tracks, written like a sponsor prefix (CUhackit: "Core: Hack for Good").
+[[rules]]
+name = "host track prefix (Core: Prize)"
+tier = 2
+pattern = '^(core|main|general|open)( tracks?)?:\s'
+examples = ["Core: Hack for Good", "Core: Most Innovative", "Core: Best Execution"]
+
 # ----------------------------------------------------------------------------- tier 3: sponsors
 [[rules]]
 name = "sponsor prefix (Sponsor: Prize)"

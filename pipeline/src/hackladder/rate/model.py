@@ -28,6 +28,11 @@ FIELD_POWER = 0.75
 MAX_FIELD_SCALE = 6.0
 MIN_SIGMA = 0.5  # a scaled update can't make anyone (near) certain
 
+# Placing prizes after a team's best one (§8.1, §15): they break ties within the best prize's tier
+# and scale up the team's rating gain, by a weight per extra prize's tier, capped in total.
+EXTRA_PRIZE_WEIGHT = {1: 0.5, 2: 0.5, 3: 0.35, 4: 0.25}
+MAX_PRIZE_BONUS = 1.0
+
 PersonId = Hashable
 
 
@@ -37,6 +42,7 @@ class Team:
     rank: int  # 1 best ... NON_PLACING
     members: tuple[PersonId, ...]
     anonymous: int = 0  # private/deleted seats: rated as fresh, average players, then discarded
+    bonus: float = 0.0  # from extra placing prizes, see prize_bonus
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,17 +117,23 @@ def team_rank(prize_tiers: Iterable[int], is_winner: bool) -> int:
     return NON_PLACING
 
 
+def prize_bonus(prize_tiers: Iterable[int]) -> float:
+    """What a project's placing prizes beyond its best one add (0 for a single prize)."""
+    placing = sorted(t for t in prize_tiers if t < NON_PLACING)
+    return min(MAX_PRIZE_BONUS, sum(EXTRA_PRIZE_WEIGHT[t] for t in placing[1:]))
+
+
 def dedupe_people(teams: Sequence[Team]) -> list[Team]:
     """A person on two projects at one event keeps only their best-placed one."""
     seen: set[PersonId] = set()
     out = []
-    for t in sorted(teams, key=lambda t: t.rank):
+    for t in sorted(teams, key=lambda t: (t.rank, -t.bonus)):
         keep = tuple(m for m in t.members if m not in seen)
         seen.update(keep)
         # A team whose named members all placed better elsewhere drops out; a team that
         # never had named members (only private/deleted seats) still competes.
         if keep or (not t.members and t.anonymous):
-            out.append(Team(t.key, t.rank, keep, t.anonymous))
+            out.append(Team(t.key, t.rank, keep, t.anonymous, t.bonus))
     return out
 
 
@@ -163,7 +175,8 @@ def replay(events: Iterable[Event]) -> Replay:
         out.snapshots.append(Snapshot(ev.id, tuple(teams), pre_team_mu))
         before = {m: display(ratings[m].mu, ratings[m].sigma) for t in teams for m in t.members}
 
-        ranks = [float(t.rank) for t in teams]  # openskill only uses their order
+        # openskill only uses their order; a bonus (at most 1) reorders teams within a tier only
+        ranks = [t.rank - t.bonus / 10 for t in teams]
         actual = percentiles(ranks)
         expected = percentiles([-mu for mu in pre_team_mu])
         new = model.rate(lineups, ranks=ranks)
@@ -174,7 +187,10 @@ def replay(events: Iterable[Event]) -> Replay:
                 old = ratings[m]
                 # Scale the move in mu, and the shrink in sigma (as a power of the variance ratio).
                 sigma = max(MIN_SIGMA, old.sigma * (raw.sigma / old.sigma) ** k)
-                r = model.rating(mu=old.mu + k * (raw.mu - old.mu), sigma=sigma, name=str(m))
+                gain = k * (raw.mu - old.mu)
+                if gain > 0:  # extra prizes are easy to sweep in a small field, so they count less there
+                    gain *= 1 + t.bonus * min(1.0, k)
+                r = model.rating(mu=old.mu + gain, sigma=sigma, name=str(m))
                 ratings[m] = r
                 s = out.stats[m]
                 s.events += 1

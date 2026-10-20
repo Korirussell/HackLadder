@@ -15,6 +15,7 @@ from hackladder.rate.model import (
     display,
     field_scale,
     percentiles,
+    prize_bonus,
     replay,
     team_rank,
 )
@@ -88,6 +89,36 @@ def test_winning_a_bigger_field_is_worth_more() -> None:
     assert gains == sorted(gains)
     assert gains[0] < 20 < gains[-1]
     assert field_scale(50) == 1.0
+
+
+@pytest.mark.parametrize(
+    ("tiers", "bonus"),
+    [
+        ([2], 0.0),
+        ([1, 4], 0.25),  # 1st place plus an MLH prize
+        ([2, 3, 4], 0.6),  # track, sponsor challenge and MLH prize
+        ([3, 5], 0.0),  # a raffle adds nothing
+        ([1, 1, 2, 2], 1.0),  # capped
+    ],
+)
+def test_prize_bonus(tiers: list[int], bonus: float) -> None:
+    assert prize_bonus(tiers) == pytest.approx(bonus)
+
+
+def _gains(teams: tuple[Team, ...]) -> dict[str, int]:
+    rep = replay([Event("e", date(2025, 1, 1), teams)])
+    after = {t.key: rep.ratings[t.members[0]] for t in teams}
+    return {key: display(r.mu, r.sigma) - 1000 for key, r in after.items()}
+
+
+def test_more_prizes_gain_more() -> None:
+    field = tuple(Team(f"t{i}", NON_PLACING, (f"p{i}",)) for i in range(2, 40))
+    one = _gains((Team("a", 1, ("a",)), *field))["a"]
+    three = _gains((Team("a", 1, ("a",), bonus=prize_bonus([1, 2, 4])), *field))["a"]
+    assert three > one > 0
+    # among two track winners, the one with an extra prize finishes ahead
+    pair = _gains((Team("x", 2, ("x",)), Team("y", 2, ("y",), bonus=0.25), *field))
+    assert pair["y"] > pair["x"] > 0
 
 
 def test_events_with_one_team_are_skipped() -> None:

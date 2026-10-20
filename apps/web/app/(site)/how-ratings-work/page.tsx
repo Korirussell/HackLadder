@@ -95,6 +95,12 @@ export default async function Method() {
             makes a bigger field worth more.
           </p>
           <p>
+            Winning several prizes at one event counts for more. Each placing prize after a team&apos;s best one puts it ahead of
+            teams with the same best prize, and adds to its gain: half again for another top or track prize, a third for a
+            sponsor prize, a quarter for an MLH or tech prize, up to double. Extra prizes are easier to sweep in a small field,
+            so below 50 teams the bonus shrinks with the event.
+          </p>
+          <p>
             The displayed rating is <code>1000 + 40 × (μ − 3σ)</code>, a conservative lower bound: a new hacker has μ = 25, σ = 25/3,
             so starts at 1000.
           </p>

@@ -1,13 +1,19 @@
 name: Crawl events
 
-# Crawl specific events, then rate and publish (§6.4, §8.7). Started from /admin/mlh when an admin
-# confirms a past MLH event, so it shows up on the site without waiting for the weekly crawl.
+# Crawl events, then rate and publish (§6.4, §8.7).
+# - With slugs: started from /admin/mlh when an admin confirms a past MLH event, so it shows up
+#   without waiting for the weekly crawl.
+# - Without (the daily schedule): the backfill. Crawls in-scope events not yet crawled, newest
+#   first, for about 5 hours; checkpoints let the next day carry on. Once the backlog is done a
+#   run finds nothing new and takes minutes.
 on:
+  schedule:
+    - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
       slugs:
-        description: "Devpost subdomains, space-separated (e.g. dubhacks-2026)"
-        required: true
+        description: "Devpost subdomains, space-separated (e.g. dubhacks-2026); empty = the backlog"
+        required: false
         type: string
 
 concurrency:
@@ -49,7 +55,6 @@ jobs:
             [[ "$slug" =~ ^[a-z0-9][a-z0-9-]{0,99}$ ]] || { echo "not a Devpost subdomain: $slug"; exit 1; }
             args+=(--slug "$slug")
           done
-          [ ${#args[@]} -gt 0 ] || { echo "no slugs given"; exit 1; }
           uv run hl crawl events "${args[@]}"
       - name: Rate and publish
         env:

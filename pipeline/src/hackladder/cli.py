@@ -27,6 +27,8 @@ from hackladder.parse import ParseError, ProjectPage, parse_project
 from hackladder.parse.common import host_of
 from hackladder.prizes import CONFIG_PATH, TierConfig, TierConfigError, load_tier_config, review
 from hackladder.rate.run import run_ratings
+from hackladder.schools import DEFAULT_FILE as SCHOOLS_FILE
+from hackladder.schools import load_schools, read_schools
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="HackLadder data pipeline.")
 
@@ -208,6 +210,23 @@ def config_show() -> None:
     typer.echo(
         json.dumps(config.snapshot() | {"rated_hackathon_ids": len(config.rated_hackathon_ids)}, indent=2)
     )
+
+
+schools_app = typer.Typer(no_args_is_help=True, help="The school list owners pick from on /me (§16).")
+app.add_typer(schools_app, name="schools")
+
+
+@schools_app.command("load")
+def schools_load(
+    schools_file: Annotated[
+        Path, typer.Option("--file", help="JSON list of {name, country, code}.")
+    ] = SCHOOLS_FILE,
+) -> None:
+    """Add the universities the database doesn't have yet (safe to rerun)."""
+    schools = read_schools(schools_file)
+    with _connect() as conn:
+        added = load_schools(conn, schools)
+    typer.echo(f"{added} schools added ({len(schools)} in {schools_file.name}; the rest were already there).")
 
 
 crawl_app = typer.Typer(no_args_is_help=True, help="Fetch pages from Devpost politely (§6.2) and load them.")

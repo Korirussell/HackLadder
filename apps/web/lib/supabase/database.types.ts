@@ -286,6 +286,60 @@ export type Database = {
         }
         Relationships: []
       }
+      crews: {
+        Row: {
+          events_together: number
+          members: number[]
+          overperformance: number | null
+          placements_together: number
+          score: number | null
+          size: number | null
+        }
+        Insert: {
+          events_together: number
+          members: number[]
+          overperformance?: number | null
+          placements_together: number
+          score?: number | null
+          size?: number | null
+        }
+        Update: {
+          events_together?: number
+          members?: number[]
+          overperformance?: number | null
+          placements_together?: number
+          score?: number | null
+          size?: number | null
+        }
+        Relationships: []
+      }
+      crews_next: {
+        Row: {
+          events_together: number
+          members: number[]
+          overperformance: number | null
+          placements_together: number
+          score: number | null
+          size: number | null
+        }
+        Insert: {
+          events_together: number
+          members: number[]
+          overperformance?: number | null
+          placements_together: number
+          score?: number | null
+          size?: number | null
+        }
+        Update: {
+          events_together?: number
+          members?: number[]
+          overperformance?: number | null
+          placements_together?: number
+          score?: number | null
+          size?: number | null
+        }
+        Relationships: []
+      }
       event_series: {
         Row: {
           created_at: string
@@ -800,87 +854,9 @@ export type Database = {
         }
         Relationships: []
       }
-      pair_synergy: {
-        Row: {
-          events_together: number
-          overperformance: number | null
-          person_a: number
-          person_b: number
-          placements_together: number
-          score: number | null
-        }
-        Insert: {
-          events_together: number
-          overperformance?: number | null
-          person_a: number
-          person_b: number
-          placements_together: number
-          score?: number | null
-        }
-        Update: {
-          events_together?: number
-          overperformance?: number | null
-          person_a?: number
-          person_b?: number
-          placements_together?: number
-          score?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pair_synergy_person_a_fkey"
-            columns: ["person_a"]
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pair_synergy_person_a_fkey"
-            columns: ["person_a"]
-            referencedRelation: "public_people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pair_synergy_person_b_fkey"
-            columns: ["person_b"]
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pair_synergy_person_b_fkey"
-            columns: ["person_b"]
-            referencedRelation: "public_people"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pair_synergy_next: {
-        Row: {
-          events_together: number
-          overperformance: number | null
-          person_a: number
-          person_b: number
-          placements_together: number
-          score: number | null
-        }
-        Insert: {
-          events_together: number
-          overperformance?: number | null
-          person_a: number
-          person_b: number
-          placements_together: number
-          score?: number | null
-        }
-        Update: {
-          events_together?: number
-          overperformance?: number | null
-          person_a?: number
-          person_b?: number
-          placements_together?: number
-          score?: number | null
-        }
-        Relationships: []
-      }
       people: {
         Row: {
+          avatar_path: string | null
           bio: string | null
           claimed_at: string | null
           claimed_by: string | null
@@ -891,6 +867,7 @@ export type Database = {
           id: number
           linkedin_url: string | null
           open_to_recruiters: boolean
+          profile_layout: Json
           profile_theme: string | null
           school_id: number | null
           slug: string
@@ -899,6 +876,7 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          avatar_path?: string | null
           bio?: string | null
           claimed_at?: string | null
           claimed_by?: string | null
@@ -909,6 +887,7 @@ export type Database = {
           id?: never
           linkedin_url?: string | null
           open_to_recruiters?: boolean
+          profile_layout?: Json
           profile_theme?: string | null
           school_id?: number | null
           slug: string
@@ -917,6 +896,7 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          avatar_path?: string | null
           bio?: string | null
           claimed_at?: string | null
           claimed_by?: string | null
@@ -927,6 +907,7 @@ export type Database = {
           id?: never
           linkedin_url?: string | null
           open_to_recruiters?: boolean
+          profile_layout?: Json
           profile_theme?: string | null
           school_id?: number | null
           slug?: string
@@ -1997,42 +1978,6 @@ export type Database = {
           },
         ]
       }
-      public_pair_synergy: {
-        Row: {
-          events_together: number | null
-          overperformance: number | null
-          person_a: number | null
-          person_b: number | null
-          placements_together: number | null
-          score: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pair_synergy_person_a_fkey"
-            columns: ["person_a"]
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pair_synergy_person_a_fkey"
-            columns: ["person_a"]
-            referencedRelation: "public_people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pair_synergy_person_b_fkey"
-            columns: ["person_b"]
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pair_synergy_person_b_fkey"
-            columns: ["person_b"]
-            referencedRelation: "public_people"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       public_people: {
         Row: {
           bio: string | null
@@ -2403,21 +2348,26 @@ export type Database = {
         Args: { p_code: string; p_html: string }
         Returns: boolean
       }
-      devpost_user_html: { Args: { p_username: string }; Returns: string }
-      duo_board: {
+      crew_board: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: {
-          a_name: string
-          a_slug: string
-          b_name: string
-          b_slug: string
           events: number
+          members: Json
           overperformance: number
           placements: number
           rank: number
           score: number
+          size: number
         }[]
       }
+      crew_members: {
+        Args: { p_members: number[] }
+        Returns: {
+          members: Json
+          visible: number
+        }[]
+      }
+      devpost_user_html: { Args: { p_username: string }; Returns: string }
       event_board: {
         Args: {
           p_limit?: number
@@ -2517,6 +2467,14 @@ export type Database = {
           slug: string
         }[]
       }
+      school_options: {
+        Args: never
+        Returns: {
+          id: number
+          name: string
+          slug: string
+        }[]
+      }
       school_page: { Args: { p_slug: string }; Returns: Json }
       school_seasons: { Args: never; Returns: string[] }
       search: {
@@ -2528,6 +2486,15 @@ export type Database = {
           school: string
           slug: string
           username: string
+        }[]
+      }
+      search_schools: {
+        Args: { lim?: number; q: string }
+        Returns: {
+          country: string
+          id: number
+          name: string
+          slug: string
         }[]
       }
       series_board: {
@@ -2592,6 +2559,7 @@ export type Database = {
           website_url: string
         }[]
       }
+      valid_profile_layout: { Args: { l: Json }; Returns: boolean }
       verify_claim: { Args: { p_attempt_id: number }; Returns: string }
       verify_removal: {
         Args: { p_code: string; p_username: string }

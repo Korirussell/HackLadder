@@ -55,6 +55,7 @@ export type Card = {
   title: string;
   lines: string[];
   chip?: string;
+  image?: string; // a claimed owner's photo (public URL)
   status: [string, string];
 };
 
@@ -99,11 +100,17 @@ export async function renderCard(card: Card, theme: ThemeId = "paper"): Promise<
               </div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1, minWidth: 0 }}>
-              {card.chip && (
-                <div style={{ display: "flex" }}>
-                  <span style={{ fontFamily: sys, fontSize: 24, background: p.accent, color: p.accentInk, borderRadius: 999, padding: "6px 18px" }}>
-                    {card.chip}
-                  </span>
+              {(card.chip || card.image) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                  {card.image && (
+                    // eslint-disable-next-line @next/next/no-img-element -- rendered by Satori, not the browser
+                    <img src={card.image} alt="" width={112} height={112} style={{ borderRadius: 26, border: `2px solid ${p.line}`, objectFit: "cover" }} />
+                  )}
+                  {card.chip && (
+                    <span style={{ fontFamily: sys, fontSize: 24, background: p.accent, color: p.accentInk, borderRadius: 999, padding: "6px 18px" }}>
+                      {card.chip}
+                    </span>
+                  )}
                 </div>
               )}
               <div style={{ fontSize: titleSize, fontWeight: 800, letterSpacing: "-0.055em", color: p.ink, lineHeight: 0.92 }}>{card.title}</div>

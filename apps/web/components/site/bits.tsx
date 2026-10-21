@@ -92,10 +92,18 @@ export function Prop({ label, children }: { label: string; children: ReactNode }
   );
 }
 
-export function PageTitle({ children, chips }: { children: ReactNode; chips?: ReactNode }) {
+export function PageTitle({ children, chips, avatar }: { children: ReactNode; chips?: ReactNode; avatar?: ReactNode }) {
+  const title = <h1 className="display text-title break-words max-[980px]:text-[clamp(44px,14vw,96px)]">{children}</h1>;
   return (
     <div className="mb-7">
-      <h1 className="display text-title break-words max-[980px]:text-[clamp(44px,14vw,96px)]">{children}</h1>
+      {avatar ? (
+        <div className="flex items-end gap-5 max-[560px]:flex-col max-[560px]:items-start max-[560px]:gap-3">
+          {avatar}
+          <div className="min-w-0">{title}</div>
+        </div>
+      ) : (
+        title
+      )}
       {chips && <div className="mt-[18px] flex flex-wrap gap-2">{chips}</div>}
     </div>
   );

@@ -175,9 +175,10 @@ Two families, each with one job:
   - A `field` properties window.
   - A `winners` podium window.
 - **Profile page:**
-  - Giant name, then chips: rank (accent), percentile, school, Devpost handle, claimed.
+  - Giant name (with the owner's photo once claimed), then chips: rank (accent), percentile, school, Devpost handle, website / GitHub / LinkedIn, claimed.
   - `rating_history`: a stats row plus a line chart with an accent area fill and the latest point marked.
-  - `event_log`: date, event, placement and change, in mono.
+  - `trophy_cabinet`: every placing prize (tiers 1–4) as tiles, best first or in the owner's order.
+  - `event_log` (`projects` in the cards and compact layouts): date, event, placement and change. Owners pin up to 3 projects first, hide projects (display only, ratings unchanged) and pick list, cards or compact (`people.profile_layout`, edited on `/me`).
   - `properties` and `frequent_teammates` windows, then the share and correction buttons.
 - **Sticker:** a round accent badge, rotated −12°, used for announcements ("Season 2026"). One per page at most.
 - **Chips:** mono, pill-shaped. Only the most important chip uses the accent.
@@ -432,7 +433,7 @@ Migrations live in `supabase/migrations/`. Everything below is the target. The p
 - `projects(id, source, source_id /*slug*/, hackathon_id, title, tagline, is_winner, built_with text[], description text)`
 - `prizes_won(project_id, prize_name, tier smallint)`
 - `accounts(id, source, source_id /*devpost username*/, display_name, school_raw, location_raw, person_id → people)`. One row per Devpost account.
-- `people(id, slug, display_name, school_id → schools, claimed_by → auth.users, claimed_at, hidden bool, linkedin_url, github_url, website_url, bio, open_to_recruiters bool, ui_theme text, profile_theme text check (profile_theme in ('paper','sumi','sakura','midnight')))`. One row per human. Entity resolution maps accounts to people (§7.5).
+- `people(id, slug, display_name, school_id → schools, claimed_by → auth.users, claimed_at, hidden bool, linkedin_url, github_url, website_url, bio, open_to_recruiters bool, ui_theme text, profile_theme text check (profile_theme in ('paper','sumi','sakura','midnight')), avatar_path text /* avatars bucket, <person id>/<file> */, profile_layout jsonb /* valid_profile_layout() */)`. One row per human. Entity resolution maps accounts to people (§7.5).
 - `project_members(project_id, account_id)`
 - `schools(id, slug, name, aliases text[], country)`
 
@@ -558,7 +559,7 @@ The admin pages live at `/admin` (email magic-link sign-in at `/sign-in`). Every
 ## 9. Privacy, safety and fairness (hard rules)
 
 1. **No minors.** Exclude high-school hackathons entirely: MLH high-school events, titles or themes containing "high school", "HS", "middle school", "secondary", or "for teens". Keep an admin-editable `excluded_hackathons` list. If a person's only events are excluded, they don't exist on HackLadder. **When in doubt, exclude.**
-2. **Public data only.** Profiles are auto-created only from what a person already published on Devpost: username, display name, projects and prizes. No emails, no avatars stored (render initials), no location unless the person adds it.
+2. **Public data only.** Profiles are auto-created only from what a person already published on Devpost: username, display name, projects and prizes. No emails, no avatars pulled from anywhere (render initials), no location unless the person adds it. A claimed owner may upload their own photo (owner's call, 2026-10-21): re-encoded in the browser to a 512px WebP (which drops EXIF/GPS), max 1 MB, stored in the `avatars` bucket in a folder only they can write, and shown only while the profile is claimed.
 3. **No LinkedIn scraping, ever.** LinkedIn, GitHub and website links come only from the owner after claiming.
 4. **"Remove me" is instant and unconditional.** It's available without an account through the bio-code check, and it hides the person everywhere. Their past results still count for opponents' ratings, but they're shown as "Hidden hacker".
 5. **Corrections are easy** and reviewed within a week. Every profile has a "Something wrong?" link.
@@ -687,6 +688,7 @@ uv run python scripts/fetch_fixtures.py               # (re)capture parser fixtu
 uv run hl prizes [--default] [--event E] [--csv out.csv]  # review how cached prize names are tiered
 uv run hl config seed [--replace]                  # load default prize rules into the DB (§8.7)
 uv run hl config show                              # the config the next rating run would use
+uv run hl schools load                             # universities for the /me school picker (safe to rerun)
 uv run pytest -m db                                # tests needing DATABASE_URL (a migrated Postgres)
 uv run hl crawl list [--incremental] [--max-pages N] [--restart]  # full crawl resumes from its checkpoint
 uv run hl mlh crawl && uv run hl mlh match    # MLH seasons, then match them to Devpost (review at /admin/mlh)
@@ -759,6 +761,9 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-20: Winning several prizes at one event counts for more (owner's call): extra placing prizes break ties within the best prize's tier and scale the team's μ gain by up to 2×, shrunk below 50 teams because sweeping prizes at an 11-team event is easy (one Victor Hacks team took Best Overall plus 3 MLH prizes). Simulation unchanged (0.622 / 0.837 / 0.882 / 0 / #1), since simulated teams win one prize each. On the live data the #1 becomes jerryhe365 (Best Overall at Knight Hacks VIII, 168 teams, and SwampHacks XI, 112). Also a "Core: Prize" rule (tier 2) for host tracks written like a sponsor prefix (CUhackit).
 - 2026-10-20: **Known issue:** σ barely shrinks (p10/p50/p90 ≈ 8.334/8.336/8.338 on the live data, vs 8.333 for a new hacker), because Plackett-Luce's per-player variance update is tiny in big fields and τ adds some back. So μ − 3σ is effectively μ − 25 and "proven" isn't rewarded. Revisit after the backfill, with the simulation.
 - 2026-10-21: Confirming a past MLH event in /admin/mlh starts the "Crawl events" workflow (`crawl-events.yml`, up to 100 slugs per batch) to crawl it and then rate and publish, so it appears without waiting for Monday's crawl. The web app can't crawl itself: an event takes 20–40 minutes at 1 request per 1.5s. In both crawl workflows the crawl step has its own timeout and doesn't fail the job, so with a backlog the run still rates what it loaded, and the next run carries on from the checkpoints.
+- 2026-10-21: Profile customization for claimed owners (owner's request): an uploaded photo, a trophy cabinet they can arrange, up to 3 pinned projects, hidden projects (display only) and a list / cards / compact project layout. The layout is one validated jsonb column (`people.profile_layout`), not new tables: it's small, owned by one row, and only ever read with the profile. The server keeps only the owner's own trophy keys and project ids. Photos go through the server action with the owner's session, so storage RLS (folder = their person id) applies.
+- 2026-10-21: The school picker searches ~10k universities from Hipo's university-domains-list (MIT, `pipeline/config/schools/`, `hl schools load`) by every word of the name; the `/hackers` filter lists only schools someone is in (`school_options()`). The table had 0 schools, so nobody could pick one. Owners still choose their school themselves (§16); unlisted schools still go to an admin.
+- 2026-10-21: Rating math experiments, not adopted: letting σ shrink with experience (an explicit precision gain per event) froze ratings, since Plackett-Luce's μ step scales with σ² (simulation hacker correlation 0.62 → −0.04); scaling up non-placing losses ×2/×4/×8 gave 0.43/0.26/0.16 and let beginner jams into the event top 20. The live ladder's problems are coverage: 167 of 1,319 in-scope events had projects.
 - 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN, and optionally REVALIDATE_SECRET (also a GitHub Actions secret).
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 

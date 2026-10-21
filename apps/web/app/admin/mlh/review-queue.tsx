@@ -72,7 +72,7 @@ export function ReviewQueue({ likely, rest, restTitle }: { likely: ReviewRow[]; 
       hide(rows.map((r) => r.mlh_event_id));
       const res = await decideMlhMatches(rows.map((r) => ({ mlhEventId: r.mlh_event_id, hackathonId: pick(r) })));
       if (res.ok) {
-        setUndo({ label, prior: rows.map(prior) });
+        setUndo({ label: res.notice ? `${label} ${res.notice}` : label, prior: rows.map(prior) });
         setToggled((t) => new Set([...t].filter((id) => !rows.some((r) => r.mlh_event_id === id))));
       } else setMessage(res.error);
     });

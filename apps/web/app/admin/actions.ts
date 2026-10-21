@@ -164,7 +164,7 @@ export async function saveSettings(_prev: FormState, f: FormData): Promise<FormS
 // Called from the review queue (app/admin/mlh/review-queue.tsx) with plain values, not forms,
 // so a batch of decisions is one request. Inputs come from the browser: validate everything.
 export type MlhDecision = { mlhEventId: number; hackathonId: number | null };
-export type MlhResult = { ok: true } | { ok: false; error: string };
+export type MlhResult = { ok: true; notice?: string } | { ok: false; error: string };
 export type DevpostSearchResult = { hackathon_id: number; slug: string; title: string; ends_on: string | null };
 
 const MAX_BATCH = 1000;
@@ -187,7 +187,28 @@ export async function decideMlhMatches(decisions: MlhDecision[]): Promise<MlhRes
   const { error } = await supabase.from("mlh_event_matches").upsert(rows);
   if (error) return { ok: false, error: `Not saved: ${error.message}` };
   refresh();
-  return { ok: true };
+  const confirmed = decisions.flatMap((d) => (d.hackathonId === null ? [] : [d.hackathonId]));
+  return { ok: true, notice: confirmed.length ? await crawlConfirmed(supabase, confirmed) : undefined };
+}
+
+const MAX_CRAWL_SLUGS = 100; // the rest wait for the weekly crawl
+
+/** Starts a crawl of the confirmed events that have ended and now count, so they don't wait a week. */
+async function crawlConfirmed(supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"], ids: number[]) {
+  const { data, error } = await supabase
+    .from("hackathon_scope")
+    .select("slug")
+    .in("hackathon_id", ids)
+    .eq("is_rated", true)
+    .lt("ends_on", new Date().toISOString().slice(0, 10));
+  if (error) return `Couldn't start a crawl (${error.message}); the weekly crawl will pick them up.`;
+  const slugs = (data ?? []).flatMap((r) => (r.slug ? [r.slug] : [])).slice(0, MAX_CRAWL_SLUGS);
+  if (!slugs.length) return undefined;
+  const started = await dispatchWorkflow(CRAWL_WORKFLOW, { slugs: slugs.join(" ") });
+  const what = slugs.length === 1 ? slugs[0] : `${slugs.length} events`;
+  return started.ok
+    ? `Crawling ${what}, then recomputing ratings (GitHub Actions).`
+    : `Not crawled yet: ${started.errors[0]} The weekly crawl will pick it up.`;
 }
 
 const PRIOR_STATUSES = new Set<PriorMatch["status"]>(["auto", "suggested", "unmatched", "confirmed", "rejected"]);
@@ -247,28 +268,33 @@ export async function searchDevpostEvents(
 
 // ---------------------------------------------------------------- recompute
 const RATE_WORKFLOW = "rate-nightly.yml";
+const CRAWL_WORKFLOW = "crawl-events.yml";
 
-/** Starts the Rate workflow on GitHub Actions. Needs GITHUB_DISPATCH_TOKEN (server-only). */
-export async function requestRecompute(): Promise<FormState> {
-  await requireAdmin("/admin");
+/** Starts a GitHub Actions workflow on main. Needs GITHUB_DISPATCH_TOKEN (server-only). */
+async function dispatchWorkflow(workflow: string, inputs?: Record<string, string>): Promise<FormState> {
   const token = process.env.GITHUB_DISPATCH_TOKEN;
   const repo = process.env.GITHUB_REPOSITORY ?? "Korirussell/HackLadder";
   if (!token) {
-    return fail(
-      "Recompute isn't connected yet: set GITHUB_DISPATCH_TOKEN (a fine-grained token with Actions: write on the repo)." +
-        " Until then, run `uv run hl rate` in pipeline/.",
-    );
+    return fail("GitHub Actions isn't connected: set GITHUB_DISPATCH_TOKEN (a fine-grained token with Actions: write).");
   }
-  const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${RATE_WORKFLOW}/dispatches`, {
+  const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
     },
-    body: JSON.stringify({ ref: "main" }),
+    body: JSON.stringify({ ref: "main", ...(inputs && { inputs }) }),
   });
   if (res.status !== 204) return fail(`GitHub didn't start the run (HTTP ${res.status}): ${await res.text()}`);
+  return OK;
+}
+
+/** Starts the Rate workflow on GitHub Actions. */
+export async function requestRecompute(): Promise<FormState> {
+  await requireAdmin("/admin");
+  const started = await dispatchWorkflow(RATE_WORKFLOW);
+  if (!started.ok) return fail(`${started.errors[0]} Until then, run \`uv run hl rate\` in pipeline/.`);
   refresh();
   return OK;
 }

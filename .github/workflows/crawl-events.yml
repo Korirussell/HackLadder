@@ -1,0 +1,69 @@
+name: Crawl events
+
+# Crawl events, then rate and publish (§6.4, §8.7).
+# - With slugs: started from /admin/mlh when an admin confirms a past MLH event, so it shows up
+#   without waiting for the weekly crawl.
+# - Without (the daily schedule): the backfill. Crawls in-scope events not yet crawled, newest
+#   first, for about 5 hours; checkpoints let the next day carry on. Once the backlog is done a
+#   run finds nothing new and takes minutes.
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      slugs:
+        description: "Devpost subdomains, space-separated (e.g. dubhacks-2026); empty = the backlog"
+        required: false
+        type: string
+
+concurrency:
+  group: pipeline-db  # never overlaps another crawl or a rating run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pipeline/uv.lock
+      - run: uv sync --locked --no-dev
+      - uses: actions/cache@v4
+        with:
+          path: pipeline/.cache/raw
+          key: raw-pages-${{ github.run_id }}
+          restore-keys: raw-pages-
+      - name: Crawl
+        timeout-minutes: 290  # leave time to rate whatever was loaded
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SLUGS: ${{ inputs.slugs }}
+        # Each slug is checked before use: the input comes from a dispatch, not from this repo.
+        run: |
+          args=()
+          for slug in $SLUGS; do
+            [[ "$slug" =~ ^[a-z0-9][a-z0-9-]{0,99}$ ]] || { echo "not a Devpost subdomain: $slug"; exit 1; }
+            args+=(--slug "$slug")
+          done
+          uv run hl crawl events "${args[@]}"
+      - name: Rate and publish
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run hl rate
+      - name: Revalidate the site
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+        run: |
+          if [ -n "$REVALIDATE_SECRET" ]; then
+            curl -fsS -X POST https://www.hackladder.com/api/revalidate -H "Authorization: Bearer $REVALIDATE_SECRET"
+          fi

@@ -39,7 +39,11 @@ jobs:
       - run: uv run hl crawl list --incremental
       - run: uv run hl mlh crawl --first-season "$(( $(date +%Y) - 1 ))"
       - run: uv run hl mlh match
+      # A backlog (§6.4) can outlast the job, so stop crawling in time to rate what was loaded.
+      # Each event is checkpointed, so the next run carries on where this one stopped.
       - run: uv run hl crawl events
+        timeout-minutes: 270
+        continue-on-error: true
       - run: uv run hl rate
       # Refresh the cached public pages now rather than within the hour (§10). Skipped until the
       # REVALIDATE_SECRET secret is set (same value as the Vercel env var).

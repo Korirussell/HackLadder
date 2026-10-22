@@ -6,11 +6,12 @@ import { signOut } from "@/app/(auth)/actions";
 import { altButtonClass, Button, Empty } from "@/components/site/bits";
 import { LoadingWin } from "@/components/site/loading";
 import { SectionHead, Win } from "@/components/os/window";
-import { getSchoolOptions } from "@/lib/data";
+import { asPage, type HackerPage } from "@/lib/pages";
 import { createClient } from "@/lib/supabase/server";
 import { isTheme } from "@/lib/theme";
 
-import { DetailsForm, HideForm, SchoolForm, ThemePicker } from "./forms";
+import { DetailsForm, HideForm, ThemePicker } from "./forms";
+import { LayoutEditor, PhotoForm, SchoolPicker } from "./profile-editor";
 
 export const metadata: Metadata = { title: "Your profile", robots: { index: false } };
 
@@ -47,14 +48,15 @@ async function Dashboard() {
     );
   }
   const email = auth.claims.email as string | undefined;
-  const [{ data: me }, { data: corrections }, { data: candidates }, schools] = await Promise.all([
+  const [{ data: me }, { data: corrections }, { data: candidates }] = await Promise.all([
     supabase
       .from("people")
-      .select("id, slug, display_name, bio, github_url, linkedin_url, website_url, school_id, hidden, profile_theme")
+      .select(
+        "id, slug, display_name, bio, github_url, linkedin_url, website_url, school_id, hidden, profile_theme, avatar_path, profile_layout",
+      )
       .maybeSingle(),
     supabase.from("corrections").select("id, kind, status, created_at, note").order("created_at", { ascending: false }).limit(20),
     supabase.rpc("my_merge_candidates"),
-    getSchoolOptions(),
   ]);
 
   const account = (
@@ -107,6 +109,14 @@ async function Dashboard() {
     );
   }
 
+  // Fresh, not the cached public page, so the editor shows exactly what the owner has now.
+  const { data: pageData } = me.hidden ? { data: null } : await supabase.rpc("hacker_page", { p_slug: me.slug });
+  const page = asPage<HackerPage>(pageData);
+  // schools itself is closed to signed-in users (§7.7); the public view has the name.
+  const { data: school } = me.school_id
+    ? await supabase.from("public_schools").select("id, name").eq("id", me.school_id).maybeSingle()
+    : { data: null };
+
   return (
     <div className="grid grid-cols-[1.2fr_1fr] items-start gap-6 max-[980px]:grid-cols-1">
       <div className="grid gap-6">
@@ -120,13 +130,23 @@ async function Dashboard() {
             </Button>
           </div>
         </Win>
+        <Win title="photo" meta="claim perk">
+          <PhotoForm name={me.display_name} path={me.avatar_path} />
+        </Win>
         <Win title="details" meta="shown on your profile">
           <DetailsForm
             initial={{ bio: me.bio ?? "", github: me.github_url ?? "", linkedin: me.linkedin_url ?? "", website: me.website_url ?? "" }}
           />
         </Win>
         <Win title="school">
-          <SchoolForm schools={schools} current={me.school_id} />
+          <SchoolPicker current={school?.id && school.name ? { id: school.id, name: school.name } : null} />
+        </Win>
+        <Win title="layout" meta="trophies and projects">
+          {page ? (
+            <LayoutEditor trophies={page.trophies ?? []} events={page.events} layout={me.profile_layout} />
+          ) : (
+            <Empty>Make your profile public to arrange your trophies and projects.</Empty>
+          )}
         </Win>
         <Win title="profile_theme" meta="claim perk">
           <ThemePicker name={me.display_name} current={isTheme(me.profile_theme) ? me.profile_theme : null} />

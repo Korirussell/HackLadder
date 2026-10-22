@@ -6,7 +6,7 @@ import { altButtonClass, buttonClass, fieldClass } from "@/components/site/bits"
 import { BIO_MAX } from "@/lib/profile";
 import { THEMES, type ThemeId } from "@/lib/theme";
 
-import { type FormState, saveDetails, saveProfileTheme, saveSchool, setHidden } from "./actions";
+import { type FormState, saveDetails, saveProfileTheme, setHidden } from "./actions";
 
 const IDLE: FormState = { status: "idle" };
 
@@ -46,42 +46,6 @@ export function DetailsForm({ initial }: { initial: { bio: string; github: strin
       <div className="flex flex-wrap items-center gap-3">
         <button type="submit" disabled={pending} className={buttonClass}>
           {pending ? "Saving" : "Save details"}
-        </button>
-        <Result state={state} />
-      </div>
-    </form>
-  );
-}
-
-export function SchoolForm({ schools, current }: { schools: { id: number; name: string }[]; current: number | null }) {
-  const [state, action, pending] = useActionState(saveSchool, IDLE);
-  const [requesting, setRequesting] = useState(false);
-  return (
-    <form action={action} className="grid gap-4 p-[22px]">
-      {requesting ? (
-        <label className="grid gap-1.5">
-          <span className="font-semibold">Your school&apos;s full name</span>
-          <input name="new_school" required placeholder="University of Example" className={fieldClass} />
-        </label>
-      ) : (
-        <label className="grid gap-1.5">
-          <span className="font-semibold">School</span>
-          <select name="school_id" defaultValue={current ?? ""} className={fieldClass}>
-            <option value="">No school</option>
-            {schools.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={pending} className={buttonClass}>
-          {pending ? "Saving" : requesting ? "Request it" : "Save school"}
-        </button>
-        <button type="button" onClick={() => setRequesting(!requesting)} className={altButtonClass}>
-          {requesting ? "Pick from the list" : "My school isn't listed"}
         </button>
         <Result state={state} />
       </div>

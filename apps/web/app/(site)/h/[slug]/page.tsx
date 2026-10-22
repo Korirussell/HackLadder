@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Fragment, Suspense } from "react";
 
+import { Avatar } from "@/components/site/avatar";
 import { Button, Change, Empty, PageTitle, Prop } from "@/components/site/bits";
 import { LoadingWin } from "@/components/site/loading";
 import { OwnerTheme } from "@/components/site/owner-theme";
@@ -10,7 +11,8 @@ import { RatingChart } from "@/components/site/rating-chart";
 import { Chip, Win } from "@/components/os/window";
 import { getHacker, getLadder } from "@/lib/data";
 import { devpostProject, devpostUser, initials, isoDate, monthYear, num, odds, plural, tierLabel, topPercent } from "@/lib/format";
-import type { HackerPage } from "@/lib/pages";
+import type { HackerEvent, HackerPage } from "@/lib/pages";
+import { arrangeProjects, arrangeTrophies, readLayout } from "@/lib/profile-layout";
 
 export async function generateStaticParams() {
   const top = await getLadder(1, null, 20);
@@ -53,6 +55,7 @@ async function Profile({ params }: Pick<PageProps<"/h/[slug]">, "params">) {
     <>
       {h.profile_theme && <OwnerTheme theme={h.profile_theme} />}
       <PageTitle
+        avatar={h.is_claimed ? <Avatar name={h.display_name} path={h.avatar_path} size={112} /> : undefined}
         chips={
           <>
             {h.rank ? (
@@ -74,6 +77,9 @@ async function Profile({ params }: Pick<PageProps<"/h/[slug]">, "params">) {
                 devpost/{u} ↗
               </Chip>
             ))}
+            {h.links.website && <Chip href={h.links.website}>website ↗</Chip>}
+            {h.links.github && <Chip href={h.links.github}>github ↗</Chip>}
+            {h.links.linkedin && <Chip href={h.links.linkedin}>linkedin ↗</Chip>}
             {h.is_claimed && <Chip>✓ claimed</Chip>}
           </>
         }
@@ -84,6 +90,7 @@ async function Profile({ params }: Pick<PageProps<"/h/[slug]">, "params">) {
       <div className="grid grid-cols-[1.25fr_1fr] items-start gap-6 max-[980px]:grid-cols-1">
         <div className="grid gap-6">
           <History h={h} />
+          <TrophyCabinet h={h} />
           <EventLog h={h} />
         </div>
         <div className="grid gap-6">
@@ -124,16 +131,9 @@ async function Profile({ params }: Pick<PageProps<"/h/[slug]">, "params">) {
             <Prop label="active since">{monthYear(h.active_since, "long")}</Prop>
           </Win>
 
-          {(h.bio || Object.keys(h.links).length > 0) && (
+          {h.bio && (
             <Win title="about">
-              <div className="grid gap-3 p-3.5">
-                {h.bio && <p className="whitespace-pre-line">{h.bio}</p>}
-                <div className="flex flex-wrap gap-2">
-                  {h.links.github && <Chip href={h.links.github}>github ↗</Chip>}
-                  {h.links.linkedin && <Chip href={h.links.linkedin}>linkedin ↗</Chip>}
-                  {h.links.website && <Chip href={h.links.website}>website ↗</Chip>}
-                </div>
-              </div>
+              <p className="whitespace-pre-line p-3.5">{h.bio}</p>
             </Win>
           )}
 
@@ -211,40 +211,142 @@ function History({ h }: { h: HackerPage }) {
   );
 }
 
-function EventLog({ h }: { h: HackerPage }) {
-  const shown = h.events.slice(0, 60);
+function TrophyCabinet({ h }: { h: HackerPage }) {
+  const trophies = arrangeTrophies(h.trophies ?? [], h.layout); // ?? []: pages cached before migration 20261021000100
+  if (!trophies.length) return null;
+  const grand = trophies.filter((t) => t.tier === 1).length;
   return (
     <Win
-      title="event_log"
-      meta={plural(h.events.length, "entry", "entries")}
-      status={[`${num(shown.length)} of ${num(h.events.length)} shown`, "sorted by date"]}
+      title="trophy_cabinet"
+      meta={plural(trophies.length, "prize")}
+      status={[grand ? plural(grand, "grand prize") : "placing prizes", h.is_claimed ? "arranged by its owner" : "best first"]}
     >
-      {shown.length ? (
-        <ol className="sys text-[12.5px]">
-          {shown.map((e) => (
-            <li
-              key={e.slug}
-              className="grid grid-cols-[88px_1fr_auto_56px] items-center gap-3 border-b border-line px-3.5 py-[9px] last:border-b-0 max-[980px]:grid-cols-[70px_1fr_48px]"
-            >
-              <span className="text-muted">{isoDate(e.ends_on)}</span>
-              <span className="min-w-0">
-                <Link href={`/e/${e.slug}`} className="font-sans text-[15px] font-semibold tracking-[-0.01em] hover:underline">
-                  {e.title}
-                </Link>
-                <a href={devpostProject(e.project_slug)} target="_blank" rel="noreferrer" className="block truncate text-[11px] text-muted hover:text-ink">
-                  {e.project} ↗
-                </a>
-              </span>
-              <span className="max-w-[22ch] truncate text-muted max-[980px]:hidden" title={e.prize ?? undefined}>
-                {e.prize ?? tierLabel(e.tier)}
-              </span>
-              <span className="text-right font-semibold">{e.change === null ? <span className="text-muted">unrated</span> : <Change value={e.change} />}</span>
-            </li>
-          ))}
-        </ol>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-px bg-line">
+        {trophies.map((t) => (
+          <li key={t.key} className="grid content-start gap-1.5 bg-win p-3.5">
+            <span className={`sys w-fit rounded-full border px-2 py-px text-[10.5px] ${t.tier === 1 ? "border-ink bg-ink text-bg" : "border-line text-muted"}`}>
+              {tierLabel(t.tier)}
+            </span>
+            <b className="text-[15px] leading-snug font-semibold tracking-[-0.01em]">{t.prize}</b>
+            <span className="sys text-[11px] text-muted">
+              <Link href={`/e/${t.event_slug}`} className="hover:text-ink hover:underline">
+                {t.event}
+              </Link>{" "}
+              · {monthYear(t.ends_on)}
+            </span>
+            <a href={devpostProject(t.project_slug)} target="_blank" rel="noreferrer" className="sys truncate text-[11px] text-muted hover:text-ink">
+              {t.project} ↗
+            </a>
+          </li>
+        ))}
+      </ul>
+    </Win>
+  );
+}
+
+function EventLog({ h }: { h: HackerPage }) {
+  const layout = readLayout(h.layout);
+  const { pinned, rest } = arrangeProjects(h.events, h.layout);
+  const shown = rest.slice(0, 60);
+  const total = pinned.length + rest.length;
+  const Item = layout.projects === "cards" ? ProjectCard : layout.projects === "compact" ? ProjectLine : ProjectRow;
+  const list = (events: HackerEvent[]) =>
+    layout.projects === "cards" ? (
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-px bg-line">
+        {events.map((e) => (
+          <Item key={e.slug} e={e} />
+        ))}
+      </ul>
+    ) : (
+      <ol className="sys text-[12.5px]">
+        {events.map((e) => (
+          <Item key={e.slug} e={e} />
+        ))}
+      </ol>
+    );
+  return (
+    <Win
+      title={layout.projects === "list" ? "event_log" : "projects"}
+      meta={plural(total, "entry", "entries")}
+      status={[`${num(pinned.length + shown.length)} of ${num(total)} shown`, pinned.length ? `${num(pinned.length)} pinned` : "sorted by date"]}
+    >
+      {total ? (
+        <>
+          {pinned.length > 0 && (
+            <div className="border-b border-line">
+              <p className="sys border-b border-line bg-chrome px-3.5 py-1.5 text-[11px] text-muted">pinned</p>
+              {list(pinned)}
+            </div>
+          )}
+          {list(shown)}
+        </>
       ) : (
         <Empty>No events on record.</Empty>
       )}
     </Win>
+  );
+}
+
+function change(e: HackerEvent) {
+  return e.change === null ? <span className="text-muted">unrated</span> : <Change value={e.change} />;
+}
+
+function ProjectRow({ e }: { e: HackerEvent }) {
+  return (
+    <li className="grid grid-cols-[88px_1fr_auto_56px] items-center gap-3 border-b border-line px-3.5 py-[9px] last:border-b-0 max-[980px]:grid-cols-[70px_1fr_48px]">
+      <span className="text-muted">{isoDate(e.ends_on)}</span>
+      <span className="min-w-0">
+        <Link href={`/e/${e.slug}`} className="font-sans text-[15px] font-semibold tracking-[-0.01em] hover:underline">
+          {e.title}
+        </Link>
+        <a href={devpostProject(e.project_slug)} target="_blank" rel="noreferrer" className="block truncate text-[11px] text-muted hover:text-ink">
+          {e.project} ↗
+        </a>
+      </span>
+      <span className="max-w-[22ch] truncate text-muted max-[980px]:hidden" title={e.prize ?? undefined}>
+        {e.prize ?? tierLabel(e.tier)}
+      </span>
+      <span className="text-right font-semibold">{change(e)}</span>
+    </li>
+  );
+}
+
+function ProjectCard({ e }: { e: HackerEvent }) {
+  return (
+    <li className="grid content-start gap-1.5 bg-win p-3.5">
+      <a href={devpostProject(e.project_slug)} target="_blank" rel="noreferrer" className="text-[17px] leading-snug font-bold tracking-[-0.015em] hover:underline">
+        {e.project} ↗
+      </a>
+      <span className="sys text-[11px] text-muted">
+        <Link href={`/e/${e.slug}`} className="hover:text-ink hover:underline">
+          {e.title}
+        </Link>{" "}
+        · {monthYear(e.ends_on)}
+      </span>
+      <span className="sys flex items-baseline justify-between gap-2 text-[11.5px]">
+        <span className="truncate text-muted" title={e.prize ?? undefined}>
+          {e.prize ?? tierLabel(e.tier)}
+        </span>
+        <span className="font-semibold">{change(e)}</span>
+      </span>
+    </li>
+  );
+}
+
+function ProjectLine({ e }: { e: HackerEvent }) {
+  return (
+    <li className="flex items-baseline gap-2 border-b border-line px-3.5 py-1.5 last:border-b-0">
+      <span className="w-[62px] shrink-0 text-muted">{isoDate(e.ends_on).slice(0, 7)}</span>
+      <a href={devpostProject(e.project_slug)} target="_blank" rel="noreferrer" className="truncate font-semibold hover:underline">
+        {e.project}
+      </a>
+      <span className="truncate text-muted">
+        @{" "}
+        <Link href={`/e/${e.slug}`} className="hover:text-ink hover:underline">
+          {e.title}
+        </Link>
+      </span>
+      <span className="ml-auto shrink-0">{e.tier ? tierLabel(e.tier) : ""}</span>
+    </li>
   );
 }

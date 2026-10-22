@@ -19,6 +19,7 @@ from hackladder.db import get_checkpoint
 from hackladder.load.hackathons import upsert_hackathons
 from hackladder.mlh import SEASON_URL, apply_matches, crawl_mlh_seasons
 from hackladder.parse import parse_hackathon_list
+from hackladder.schools import School, load_schools
 
 pytestmark = [
     pytest.mark.db,
@@ -232,3 +233,20 @@ def test_mlh_crawl_falls_back_to_regional_seasons(conn: psycopg.Connection[Any],
         ).fetchall()
     )
     assert seasons == {"2020 NA": 24, "2020 Europe": 16}
+
+
+def test_schools_load_once_with_unique_slugs(conn: psycopg.Connection[Any]) -> None:
+    schools = [
+        School("Test University", "Testland", "tl"),
+        School("Test University", "Otherland", "ol"),  # same name elsewhere: a country suffix
+        School("Test College", "Testland", "tl"),
+    ]
+    try:
+        assert load_schools(conn, schools) == 3
+        assert load_schools(conn, schools) == 0  # rerunning adds nothing
+        rows = conn.execute("select slug from public.schools where name like 'Test %'").fetchall()
+        slugs = {r[0] for r in rows}
+        assert slugs == {"test-university", "test-university-tl-2", "test-college"}
+    finally:
+        conn.execute("delete from public.schools where name like 'Test %'")
+        conn.commit()

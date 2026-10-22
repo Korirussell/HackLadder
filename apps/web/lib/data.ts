@@ -256,7 +256,8 @@ export async function getSchoolOptions(): Promise<{ id: number; slug: string; na
   cacheTag("schools");
   const supabase = publicClient();
   if (!supabase) return [];
-  const { data, error } = await supabase.from("public_schools").select("id, slug, name").order("name");
+  // Only schools someone is in: the full list (~10k) is searched on /me, never listed.
+  const { data, error } = await supabase.rpc("school_options");
   if (error) throw new Error(`schools: ${error.message}`);
   return (data ?? []).flatMap((s) => (s.id && s.slug && s.name ? [{ id: s.id, slug: s.slug, name: s.name }] : []));
 }

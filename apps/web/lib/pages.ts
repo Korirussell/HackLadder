@@ -1,12 +1,14 @@
 // Shapes of the jsonb the page functions return (supabase/migrations/20261016000400_public_site.sql).
 // Generated types only say `Json` for these, so they're declared here and read through asPage().
 
+import type { ProfileLayout } from "./profile-layout";
 import type { ThemeId } from "./theme";
 
 export type HackerEvent = {
   slug: string;
   title: string;
   ends_on: string | null;
+  project_id: number;
   project: string;
   project_slug: string;
   prize: string | null;
@@ -19,6 +21,8 @@ export type HackerPage = {
   display_name: string;
   is_claimed: boolean;
   profile_theme: ThemeId | null;
+  avatar_path: string | null;
+  layout: ProfileLayout;
   bio: string | null;
   links: { linkedin?: string; github?: string; website?: string };
   school: { slug: string; name: string } | null;
@@ -40,10 +44,24 @@ export type HackerPage = {
   month_change: number;
   history: { ends_on: string | null; score: number; event: string }[];
   events: HackerEvent[];
+  trophies?: Trophy[]; // absent from pages cached before migration 20261021000100
   teammates: { slug: string; name: string; events: number }[];
   best_crew: { members: { slug: string; name: string }[]; events: number; score: number | null } | null;
   toughest_win: { slug: string; title: string; prize: string; win_odds: number | null } | null;
   active_since: string | null;
+};
+
+/** A placing prize (tier 1-4) one of the person's projects won (migration 20261021000100). */
+export type Trophy = {
+  key: string; // "<project id>:<prize name>", what profile_layout.trophies orders
+  prize: string;
+  tier: number;
+  project_id: number;
+  project: string;
+  project_slug: string;
+  event_slug: string;
+  event: string;
+  ends_on: string | null;
 };
 
 export type EventWinner = {

@@ -33,6 +33,9 @@ export async function generateMetadata({ params }: PageProps<"/h/[slug]">): Prom
     description: `${h.display_name}: ${line}. Hackathon results from Devpost, rated by who they beat.`,
     alternates: { canonical: `/h/${h.slug}` },
     openGraph: { title: `${h.display_name} · HackLadder`, description: line, images: [`/og/h/${h.slug}`] },
+    // Same rule as sitemap_entries(): only hackers on the board or with a placement get indexed,
+    // not the ~66k provisional entrants who never placed (§15 2026-10-23).
+    ...(r && (!r.provisional || r.placements > 0) ? {} : { robots: { index: false, follow: true } }),
   };
 }
 

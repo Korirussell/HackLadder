@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import os
 import sys
 from collections.abc import Iterator
 from dataclasses import asdict
@@ -333,11 +334,27 @@ def crawl_events_command(
         typer.echo(f"  failed: {failure}")
 
 
+def _github_output(**values: object) -> None:
+    """Step outputs for GitHub Actions (e.g. skip revalidating when nothing was published)."""
+    path = os.environ.get("GITHUB_OUTPUT")
+    if path:
+        with open(path, "a", encoding="utf-8") as f:
+            f.writelines(f"{k}={str(v).lower()}\n" for k, v in values.items())
+
+
 @app.command()
-def rate() -> None:
+def rate(
+    if_changed: Annotated[
+        bool, typer.Option(help="Skip (and don't publish) when nothing changed since the last run.")
+    ] = False,
+) -> None:
     """Rebuild all ratings from scratch with the current config and publish them."""
     with _connect() as conn:
-        summary = run_ratings(conn)
+        summary = run_ratings(conn, if_changed=if_changed)
+    _github_output(published=summary is not None)
+    if summary is None:
+        typer.echo("Nothing changed since the last published run; skipped.")
+        return
     typer.echo(
         f"Rated {summary.people} people ({summary.ranked} ranked) across {summary.events} events;"
         f" {summary.series} series, {summary.crews} crews; event noise {summary.noise:.2f}."

@@ -44,10 +44,13 @@ jobs:
       - run: uv run hl crawl events
         timeout-minutes: 270
         continue-on-error: true
-      - run: uv run hl rate
+      # Publishes (and invalidates the site's cache) only if something changed (§15 2026-10-23).
+      - id: rate
+        run: uv run hl rate --if-changed
       # Refresh the cached public pages now rather than within the hour (§10). Skipped until the
       # REVALIDATE_SECRET secret is set (same value as the Vercel env var).
       - name: Revalidate the site
+        if: steps.rate.outputs.published == 'true'
         env:
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
         run: |

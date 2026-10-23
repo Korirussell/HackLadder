@@ -25,6 +25,8 @@ export async function generateMetadata({ params }: PageProps<"/s/[slug]">): Prom
     description: `${s.name} hackers on HackLadder: ${line}.`,
     alternates: { canonical: `/s/${s.slug}` },
     openGraph: { title: `${s.name} · HackLadder`, description: line, images: [`/og/s/${s.slug}`] },
+    // An empty school page (most of the ~10k loaded universities) isn't worth indexing (§15 2026-10-23).
+    ...(s.members === 0 ? { robots: { index: false, follow: true } } : {}),
   };
 }
 

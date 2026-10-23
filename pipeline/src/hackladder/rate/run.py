@@ -7,6 +7,8 @@ rating row by hand: change the inputs (config, corrections) and rerun.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -107,8 +109,51 @@ def _series_ids(
     return ids
 
 
-def run_ratings(conn: Connection) -> RateSummary:
+# Everything a rating run reads (§8.7), hashed order-independently. hackathons.series_id is left
+# out because the run itself writes it; series_overrides is in instead.
+_INPUTS = """
+select concat_ws('|',
+  (select count(*) || ':' || coalesce(sum(hashtext(id || ':' || hackathon_id || ':' || is_winner
+          || ':' || anonymous_members)::bigint), 0) from public.projects),
+  (select count(*) || ':' || coalesce(sum(hashtext(project_id || ':' || account_id)::bigint), 0)
+     from public.project_members),
+  (select count(*) || ':' || coalesce(sum(hashtext(id || ':' || coalesce(person_id, 0))::bigint), 0)
+     from public.accounts),
+  (select count(*) || ':' || coalesce(sum(hashtext(project_id || ':' || prize_name)::bigint), 0)
+     from public.prizes_won),
+  (select count(*) || ':' || coalesce(sum(hashtext(id || ':' || coalesce(school_id, 0))::bigint), 0)
+     from public.people),
+  (select count(*) || ':' || coalesce(sum(hashtext(concat_ws(':', id, slug, url, title, ends_on))::bigint), 0)
+     from public.hackathons),
+  (select count(*) || ':' || coalesce(sum(hashtext(hackathon_id || ':' || series_id)::bigint), 0)
+     from public.series_overrides))
+"""
+
+
+def input_fingerprint(conn: Connection, config: RatingConfig) -> str:
+    """Changes whenever anything the ratings are built from changes: data or config."""
+    row = conn.execute(_INPUTS).fetchone()
+    assert row is not None
+    snapshot = json.dumps(config.snapshot(), sort_keys=True, default=str)
+    return hashlib.sha256(f"{row[0]}#{snapshot}".encode()).hexdigest()
+
+
+def last_fingerprint(conn: Connection) -> str | None:
+    row = conn.execute(
+        "select summary ->> 'fingerprint' from public.pipeline_runs"
+        " where job = 'rate' and status = 'succeeded' order by started_at desc limit 1"
+    ).fetchone()
+    return None if row is None else row[0]
+
+
+def run_ratings(conn: Connection, *, if_changed: bool = False) -> RateSummary | None:
+    """Rebuild and publish everything. With ``if_changed``, do nothing (and return None) when the
+    inputs match the last published run: every publish invalidates the whole site's cache and
+    rewrites ~160k rows, so a no-op run is pure cost (Vercel ISR writes, Supabase Disk IO)."""
     config = load_rating_config(conn)
+    fingerprint = input_fingerprint(conn, config)
+    if if_changed and fingerprint == last_fingerprint(conn):
+        return None
     events, meta = load_events(conn, config)
     rep = replay(events)
     keys = {hid: series_key(meta[hid][1], meta[hid][2]) for hid in meta}
@@ -171,7 +216,7 @@ def run_ratings(conn: Connection) -> RateSummary:
         (
             len(rep.ratings),
             Jsonb(config.snapshot()),
-            Jsonb({"events": len(rep.snapshots), "noise": noise}),
+            Jsonb({"events": len(rep.snapshots), "noise": noise, "fingerprint": fingerprint}),
             run_row[0],
         ),
     )

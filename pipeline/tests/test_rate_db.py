@@ -88,6 +88,7 @@ def test_crawl_load_rate_publish(conn: psycopg.Connection[Any]) -> None:
     assert q("select count(*) from public.accounts where source = 'devpost'") == (9,)
 
     summary = run_ratings(conn)
+    assert summary is not None
     assert (summary.events, summary.people, summary.ranked) == (1, 9, 0)  # one event: everyone provisional
     assert q("select count(*) from public.ratings") == (9,)
     assert q("select count(*) from public.ratings_next") == (0,)  # swapped in and cleared
@@ -108,6 +109,38 @@ def test_crawl_load_rate_publish(conn: psycopg.Connection[Any]) -> None:
 
     again = crawl_events(FixtureCache(), conn, load_rating_config(conn).prize_tiers, today=date(2026, 10, 1))
     assert (again.events, again.skipped) == (0, 1)  # settled event already crawled
+
+    # Nothing changed: --if-changed publishes nothing. One changed input: it rebuilds.
+    assert run_ratings(conn, if_changed=True) is None
+    conn.execute("update public.projects set is_winner = not is_winner where source_id = 'palate-pals'")
+    conn.commit()
+    assert run_ratings(conn, if_changed=True) is not None
+
+
+def test_reloading_an_unchanged_project_writes_nothing(conn: psycopg.Connection[Any]) -> None:
+    seed_prize_rules(conn)
+    conn.execute(
+        "insert into public.hackathons"
+        " (source, source_id, slug, title, url, ends_on, is_mlh, winners_announced)"
+        " values ('devpost', '19000', 'treehacks-2024', 'TreeHacks 2024', 'https://treehacks-2024.devpost.com/',"
+        " '2024-02-18', true, true)"
+    )
+    conn.commit()
+    tiers = load_rating_config(conn).prize_tiers
+    crawl_events(FixtureCache(), conn, tiers, today=date(2026, 10, 1))
+
+    def versions() -> tuple[Any, ...] | None:
+        # xmin changes whenever a row is rewritten, even with identical values
+        return conn.execute(
+            "select (select array_agg(xmin::text order by id) from public.accounts),"
+            " (select array_agg(xmin::text order by id) from public.projects),"
+            " (select array_agg(xmin::text order by project_id, prize_name) from public.prizes_won),"
+            " (select array_agg(xmin::text order by project_id, account_id) from public.project_members)"
+        ).fetchone()
+
+    before = versions()
+    crawl_events(FixtureCache(), conn, tiers, slugs=["treehacks-2024"], today=date(2026, 10, 1))
+    assert versions() == before
 
 
 @pytest.mark.parametrize(("d", "season"), [(date(2025, 8, 1), "2025-26"), (date(2026, 7, 31), "2025-26")])

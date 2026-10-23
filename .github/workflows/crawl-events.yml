@@ -56,11 +56,14 @@ jobs:
             args+=(--slug "$slug")
           done
           uv run hl crawl events "${args[@]}"
+      # Publishes (and invalidates the site's cache) only if something changed (§15 2026-10-23).
       - name: Rate and publish
+        id: rate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: uv run hl rate
+        run: uv run hl rate --if-changed
       - name: Revalidate the site
+        if: steps.rate.outputs.published == 'true'
         env:
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
         run: |

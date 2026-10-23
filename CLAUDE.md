@@ -764,6 +764,20 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-21: Profile customization for claimed owners (owner's request): an uploaded photo, a trophy cabinet they can arrange, up to 3 pinned projects, hidden projects (display only) and a list / cards / compact project layout. The layout is one validated jsonb column (`people.profile_layout`), not new tables: it's small, owned by one row, and only ever read with the profile. The server keeps only the owner's own trophy keys and project ids. Photos go through the server action with the owner's session, so storage RLS (folder = their person id) applies.
 - 2026-10-21: The school picker searches ~10k universities from Hipo's university-domains-list (MIT, `pipeline/config/schools/`, `hl schools load`) by every word of the name; the `/hackers` filter lists only schools someone is in (`school_options()`). The table had 0 schools, so nobody could pick one. Owners still choose their school themselves (§16); unlisted schools still go to an admin.
 - 2026-10-21: Rating math experiments, not adopted: letting σ shrink with experience (an explicit precision gain per event) froze ratings, since Plackett-Luce's μ step scales with σ² (simulation hacker correlation 0.62 → −0.04); scaling up non-placing losses ×2/×4/×8 gave 0.43/0.26/0.16 and let beginner jams into the event top 20. The live ladder's problems are coverage: 167 of 1,319 in-scope events had projects.
+- 2026-10-23: Usage warnings (Vercel ISR writes at 75% of Hobby's 200k; Supabase Nano "depleting its Disk IO budget"). Diagnosis:
+  - **Vercel:** about 80k crawlable URLs (70k profiles, mostly provisional, and 10k empty school pages) regenerated hourly and after every publish, with output that really changed: live counts in the chrome, ratings during the backfill.
+  - **Supabase:** writes, not reads (100% cache hit, 1.6 GB of WAL since 2026-10-02). The sources were the backfill, about 2 full republishes a day, and no-op upserts (124k account rewrites).
+
+  Fixes:
+  - Cache profile `published` (weekly; tags handle freshness), so pages now revalidate at most daily (the chrome's next-event countdown sets the cap).
+  - Search is uncached.
+  - AI crawlers are disallowed in robots.txt.
+  - The sitemap and indexing cover only hackers on the board or with a placement, and schools with members.
+  - `hl rate --if-changed` fingerprints all inputs and skips the publish and the revalidation when nothing changed.
+  - The `*_next` tables are UNLOGGED.
+  - Loaders skip unchanged accounts, projects, prizes, teams and hackathons.
+
+  Supabase moves to Pro with Small compute (owner's call). Incremental rating recompute was rejected: the full replay is what makes ratings reproducible.
 - 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN, and optionally REVALIDATE_SECRET (also a GitHub Actions secret).
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 

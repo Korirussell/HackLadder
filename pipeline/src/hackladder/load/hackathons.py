@@ -34,13 +34,26 @@ on conflict (source, source_id) do update set
   winners_announced = excluded.winners_announced,
   -- Never cleared by a reload: MLH's flag or an earlier keyword match may have set it (§9).
   is_high_school = hackathons.is_high_school or excluded.is_high_school
+-- Only when something changed: the weekly list crawl re-reads hundreds of settled events.
+where (hackathons.title, hackathons.url, hackathons.organization, hackathons.location,
+       hackathons.is_online, hackathons.starts_on, hackathons.ends_on, hackathons.registrations,
+       hackathons.prize_total_usd, hackathons.themes, hackathons.winners_announced)
+      is distinct from
+      (excluded.title, excluded.url, excluded.organization, excluded.location, excluded.is_online,
+       excluded.starts_on, excluded.ends_on, excluded.registrations, excluded.prize_total_usd,
+       excluded.themes, excluded.winners_announced)
+   or (excluded.is_high_school and not hackathons.is_high_school)
 returning id, (xmax = 0) as inserted
 """
+
+_EXISTING = "select id, false from public.hackathons where source = 'devpost' and source_id = %s"
 
 _META = """
 insert into public.hackathons_devpost_meta (hackathon_id, invite_only, open_state)
 values (%s, %s, %s)
 on conflict (hackathon_id) do update set invite_only = excluded.invite_only, open_state = excluded.open_state
+where (hackathons_devpost_meta.invite_only, hackathons_devpost_meta.open_state)
+      is distinct from (excluded.invite_only, excluded.open_state)
 """
 
 
@@ -67,27 +80,30 @@ def upsert_hackathons(conn: psycopg.Connection[Any], metas: Sequence[HackathonMe
     inserted = 0
     with conn.cursor() as cur:
         for m in metas:
-            row = cur.execute(
-                _UPSERT,
-                {
-                    "source_id": m.source_id,
-                    "slug": slugs[m.source_id],
-                    "title": m.title,
-                    "url": m.url,
-                    "organization": m.organization,
-                    "location": m.location,
-                    "is_online": m.is_online,
-                    "starts_on": m.starts_on,
-                    "ends_on": m.ends_on,
-                    "registrations": m.registrations,
-                    "prize_total_usd": m.prize_total_usd,
-                    "themes": Jsonb(list(m.themes)),
-                    "is_high_school": looks_high_school(
-                        m.title, themes=m.themes, organization=m.organization
-                    ),
-                    "winners_announced": m.winners_announced,
-                },
-            ).fetchone()
+            row = (
+                cur.execute(
+                    _UPSERT,
+                    {
+                        "source_id": m.source_id,
+                        "slug": slugs[m.source_id],
+                        "title": m.title,
+                        "url": m.url,
+                        "organization": m.organization,
+                        "location": m.location,
+                        "is_online": m.is_online,
+                        "starts_on": m.starts_on,
+                        "ends_on": m.ends_on,
+                        "registrations": m.registrations,
+                        "prize_total_usd": m.prize_total_usd,
+                        "themes": Jsonb(list(m.themes)),
+                        "is_high_school": looks_high_school(
+                            m.title, themes=m.themes, organization=m.organization
+                        ),
+                        "winners_announced": m.winners_announced,
+                    },
+                ).fetchone()
+                or cur.execute(_EXISTING, (m.source_id,)).fetchone()
+            )
             assert row is not None
             inserted += bool(row[1])
             cur.execute(_META, (row[0], m.invite_only, m.open_state))

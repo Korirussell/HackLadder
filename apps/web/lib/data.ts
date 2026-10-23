@@ -35,7 +35,7 @@ export type SiteStats = {
 
 export async function getSiteStats(): Promise<SiteStats> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   const rows = await rpc<SiteStats[]>("site_stats", {}, []);
   return rows[0] ?? { hackers: 0, rated_hackers: 0, hackathons: 0, rated_events: 0, updated_at: null };
@@ -52,7 +52,8 @@ export type NextEvent ={ name: string; starts_at: string; ends_at: string; locat
 
 export async function getNextEvent(): Promise<NextEvent | null> {
   "use cache";
-  cacheLife("hours");
+  // In the chrome of every page: a nested lifetime caps the page's own, so not "hours".
+  cacheLife("days");
   cacheTag("events");
   const rows = await rpc<NextEvent[]>("next_event", {}, []);
   return rows[0] ?? null;
@@ -62,7 +63,7 @@ export type UpcomingEvent = NextEvent & { format: string };
 
 export async function getUpcomingEvents(): Promise<UpcomingEvent[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("hours"); // one page, and "upcoming" depends on the date
   cacheTag("events");
   return rpc<UpcomingEvent[]>("upcoming_events", { p_limit: 120 }, []);
 }
@@ -87,7 +88,7 @@ export type LadderRow = {
 
 export async function getLadder(page = 1, school: string | null = null, perPage = PER_PAGE): Promise<LadderRow[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return rpc<LadderRow[]>(
     "ladder",
@@ -98,14 +99,14 @@ export async function getLadder(page = 1, school: string | null = null, perPage 
 
 export async function getProvisionalCount(): Promise<number> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return Number(await rpc<number>("provisional_count", {}, 0));
 }
 
 export async function getHacker(slug: string): Promise<HackerPage | null> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings", `hacker:${slug}`);
   return asPage<HackerPage>(await rpc<unknown>("hacker_page", { p_slug: slug }, null));
 }
@@ -130,7 +131,7 @@ export type EventFilters = { year?: number; online?: boolean; minTeams?: number 
 
 export async function getEventBoard(page = 1, filters: EventFilters = {}, perPage = PER_PAGE): Promise<EventBoardRow[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return rpc<EventBoardRow[]>(
     "event_board",
@@ -157,21 +158,21 @@ export type SeriesBoardRow = {
 
 export async function getSeriesBoard(limit = 50): Promise<SeriesBoardRow[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return rpc<SeriesBoardRow[]>("series_board", { p_limit: limit }, []);
 }
 
 export async function getEvent(slug: string): Promise<EventPage | null> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings", `event:${slug}`);
   return asPage<EventPage>(await rpc<unknown>("event_page", { p_slug: slug }, null));
 }
 
 export async function getSeries(slug: string): Promise<SeriesPage | null> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return asPage<SeriesPage>(await rpc<unknown>("series_page", { p_slug: slug }, null));
 }
@@ -180,21 +181,21 @@ export type SchoolRow = { rank: number; slug: string; name: string; rating: numb
 
 export async function getSchoolBoard(season: string | null = null): Promise<SchoolRow[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return rpc<SchoolRow[]>("school_board", season ? { p_season: season } : {}, []);
 }
 
 export async function getSchoolSeasons(): Promise<string[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return rpc<string[]>("school_seasons", {}, []);
 }
 
 export async function getSchool(slug: string): Promise<SchoolPage | null> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return asPage<SchoolPage>(await rpc<unknown>("school_page", { p_slug: slug }, null));
 }
@@ -211,7 +212,7 @@ export type CrewRow = {
 
 export async function getCrews(page = 1, perPage = PER_PAGE): Promise<CrewRow[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return rpc<CrewRow[]>("crew_board", { p_limit: perPage, p_offset: (page - 1) * perPage }, []);
 }
@@ -234,10 +235,9 @@ export async function getRankTiers(): Promise<RankTier[]> {
   }));
 }
 
+// Not cached: every distinct query (each debounced keystroke) would be its own cache write, and
+// the search RPC is a fast index lookup (§15 2026-10-23).
 export async function searchAll(q: string): Promise<SearchHit[]> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("ratings");
   return rpc<SearchHit[]>("search", { q, lim: 30 }, []);
 }
 
@@ -245,14 +245,14 @@ export type SitemapEntry ={ kind: "hacker" | "school" | "event" | "series"; slug
 
 export async function getSitemapEntries(): Promise<SitemapEntry[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("ratings");
   return rpc<SitemapEntry[]>("sitemap_entries", {}, []);
 }
 
 export async function getSchoolOptions(): Promise<{ id: number; slug: string; name: string }[]> {
   "use cache";
-  cacheLife("hours");
+  cacheLife("published");
   cacheTag("schools");
   const supabase = publicClient();
   if (!supabase) return [];

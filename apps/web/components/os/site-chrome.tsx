@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { getNextEvent, getSiteStats } from "@/lib/data";
-import { plural } from "@/lib/format";
+import { getNextEvent } from "@/lib/data";
 
 import { BootScreen } from "./boot-screen";
 import { Countdown } from "./countdown";
@@ -13,10 +12,11 @@ import { Wallpaper } from "./wallpaper";
 
 /** The OS around every public page (§4.3): menu bar, desktop icons, claim button, dock, wallpaper. */
 export async function SiteChrome({ children }: { children: ReactNode }) {
-  const [stats, next] = await Promise.all([getSiteStats(), getNextEvent()]);
+  // Nothing here may change on every publish: it's in every page (§15 2026-10-25).
+  const next = await getNextEvent();
   return (
     <>
-      <BootScreen hackers={plural(stats.hackers, "hacker")} hackathons={plural(stats.hackathons, "hackathon")} />
+      <BootScreen />
       <Wallpaper />
       <a
         href="#content"

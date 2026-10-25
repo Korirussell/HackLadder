@@ -31,7 +31,7 @@ def connect(env_file: Path = Path(".env")) -> Connection:
     if not url:
         raise DatabaseConfigError("DATABASE_URL is not set. Add it to pipeline/.env (see .env.example).")
     try:
-        return psycopg.connect(url)
+        conn = psycopg.connect(url)
     except psycopg.OperationalError as exc:
         hint = ""
         if re.search(r"@db\.[a-z0-9]+\.supabase\.co", url):
@@ -42,6 +42,11 @@ def connect(env_file: Path = Path(".env")) -> Connection:
                 " postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
             )
         raise DatabaseConfigError(f"Couldn't connect to the database: {exc}{hint}") from exc
+    # Supabase's default 2-minute limit is for web requests. When the disk is throttled (Disk IO
+    # budget spent) even a one-row upsert can take longer, which failed a whole crawl (2026-10-24).
+    conn.execute("set statement_timeout = '15min'")
+    conn.commit()
+    return conn
 
 
 @dataclass

@@ -87,7 +87,7 @@ def test_winning_a_bigger_field_is_worth_more() -> None:
     # Plain Plackett-Luce did the opposite (+45 at 11 teams, +9 at 300); field_scale fixes it (§15).
     gains = [_first_place_gain(n) for n in (11, 33, 50, 147, 300)]
     assert gains == sorted(gains)
-    assert gains[0] < 20 < gains[-1]
+    assert gains[0] < 100 < gains[-1]  # in display points (200 per unit of mu)
     assert field_scale(50) == 1.0
 
 

@@ -493,7 +493,7 @@ The prototype in `pipeline/prototype/` is validated. Port its logic into `src/ha
 - A person on two projects at one event keeps only their best-placed one (`dedupe_people`).
 - **Field-size correction:** Plackett-Luce divides every update by c ≈ √(teams), which made a win at an 11-team event worth 3× one at a 150-team event. Each event's change in μ, and its shrink in σ, are scaled by `(teams / 50)^0.75` (`field_scale`, capped at 6), so a bigger field is worth more (§15).
 - **Extra prizes:** each placing prize after a team's best one adds a bonus (tier 1/2: 0.5, tier 3: 0.35, tier 4: 0.25, capped at 1; `prize_bonus`). It breaks ties within the best prize's tier and multiplies the team's μ gain by `1 + bonus × min(1, field_scale)` (§15).
-- Display score: `1000 + 40 × (μ − 3σ)`, so new hackers start at about 1000 and a single lucky win can't top the board.
+- Display score: `1000 + 200 × (μ − 3σ)`, so new hackers start at about 1000 and a single lucky win can't top the board.
 - Leaderboard eligibility: at least 3 rated events (the prototype used 2; **use 3**). Below that, the profile is labeled "Provisional".
 
 ### 8.2 Event ranking (`prototype/analyze_events.py`)
@@ -764,6 +764,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-21: Profile customization for claimed owners (owner's request): an uploaded photo, a trophy cabinet they can arrange, up to 3 pinned projects, hidden projects (display only) and a list / cards / compact project layout. The layout is one validated jsonb column (`people.profile_layout`), not new tables: it's small, owned by one row, and only ever read with the profile. The server keeps only the owner's own trophy keys and project ids. Photos go through the server action with the owner's session, so storage RLS (folder = their person id) applies.
 - 2026-10-21: The school picker searches ~10k universities from Hipo's university-domains-list (MIT, `pipeline/config/schools/`, `hl schools load`) by every word of the name; the `/hackers` filter lists only schools someone is in (`school_options()`). The table had 0 schools, so nobody could pick one. Owners still choose their school themselves (§16); unlisted schools still go to an admin.
 - 2026-10-21: Rating math experiments, not adopted: letting σ shrink with experience (an explicit precision gain per event) froze ratings, since Plackett-Luce's μ step scales with σ² (simulation hacker correlation 0.62 → −0.04); scaling up non-placing losses ×2/×4/×8 gave 0.43/0.26/0.16 and let beginner jams into the event top 20. The live ladder's problems are coverage: 167 of 1,319 in-scope events had projects.
+- 2026-10-26: Display scale changed from 40 to 200 points per unit of μ (`DISPLAY_SCALE`). At 40, the board spanned 968–1,119, the #1 sat 119 points above a new account, and a placement moved a score about 4 points: it read as if nothing moved. It's a positive linear change, so every order and rank is the same (the simulation still passes). σ is still stuck near 8.34 (known issue, 2026-10-20), so μ − 3σ is effectively μ − 25. School search ranks names with a leading "The" as exact matches (The University of Alabama was third for "university of alabama").
 - 2026-10-23: Usage warnings (Vercel ISR writes at 75% of Hobby's 200k; Supabase Nano "depleting its Disk IO budget"). Diagnosis:
   - **Vercel:** about 80k crawlable URLs (70k profiles, mostly provisional, and 10k empty school pages) regenerated hourly and after every publish, with output that really changed: live counts in the chrome, ratings during the backfill.
   - **Supabase:** writes, not reads (100% cache hit, 1.6 GB of WAL since 2026-10-02). The sources were the backfill, about 2 full republishes a day, and no-op upserts (124k account rewrites).
@@ -796,7 +797,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 
 ## 17. Glossary
 
-- **Rating / score:** displayed number, `1000 + 40(μ − 3σ)`.
+- **Rating / score:** displayed number, `1000 + 200(μ − 3σ)`.
 - **μ, σ:** OpenSkill skill estimate and its uncertainty.
 - **Provisional:** fewer than 3 rated events; shown without a rank.
 - **Rank tier:** the named band a rating falls in (Hello World … Legend, Hall of Fame for the top 100); admin-editable (§8.7).

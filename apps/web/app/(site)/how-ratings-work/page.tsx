@@ -43,7 +43,7 @@ export default async function Method() {
               events move ratings more: winning against 150 teams is worth about 1.5 times as much as winning against 30.
             </p>
             <p>
-              Your rating is a cautious estimate: <b>1000 + 40 × (skill − 3 × uncertainty)</b>. Everyone starts near 1000, and a
+              Your rating is a cautious estimate: <b>1000 + 200 × (skill − 3 × uncertainty)</b>. Everyone starts near 1000, and a
               single lucky win can&apos;t put you at the top, because one result leaves a lot of uncertainty.
             </p>
             <p>
@@ -101,7 +101,7 @@ export default async function Method() {
             so below 50 teams the bonus shrinks with the event.
           </p>
           <p>
-            The displayed rating is <code>1000 + 40 × (μ − 3σ)</code>, a conservative lower bound: a new hacker has μ = 25, σ = 25/3,
+            The displayed rating is <code>1000 + 200 × (μ − 3σ)</code>, a conservative lower bound: a new hacker has μ = 25, σ = 25/3,
             so starts at 1000.
           </p>
         </MathNote>

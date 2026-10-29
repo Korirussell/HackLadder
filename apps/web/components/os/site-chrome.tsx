@@ -7,11 +7,11 @@ import { plural } from "@/lib/format";
 import { BootScreen } from "./boot-screen";
 import { Countdown } from "./countdown";
 import { Mark } from "./mark";
-import { DesktopIcons, DockNav, MenuLinks } from "./nav-links";
-import { ThemeSwatches } from "./theme-swatches";
+import { MobileMenu } from "./mobile-menu";
+import { DesktopIcons, MenuLinks } from "./nav-links";
 import { Wallpaper } from "./wallpaper";
 
-/** The OS around every public page (§4.3): menu bar, desktop icons, claim button, dock, wallpaper. */
+/** The OS around every public page (§4.3): menu bar (with the phone menu), desktop icons, claim button, wallpaper. */
 export async function SiteChrome({ children }: { children: ReactNode }) {
   const [stats, next] = await Promise.all([getSiteStats(), getNextEvent()]);
   return (
@@ -33,6 +33,7 @@ export async function SiteChrome({ children }: { children: ReactNode }) {
         <MenuLinks />
         <div className="ml-auto flex items-center gap-[18px]">
           {next && <Countdown name={next.name} startsAt={next.starts_at} href={next.website_url} />}
+          <MobileMenu />
         </div>
       </header>
 
@@ -47,7 +48,7 @@ export async function SiteChrome({ children }: { children: ReactNode }) {
 
       <main
         id="content"
-        className="relative z-[2] mx-auto max-w-content pt-[calc(var(--spacing-menu)+28px)] pr-10 pb-[120px] pl-[140px] max-[980px]:px-4 max-[980px]:pt-[calc(var(--spacing-menu)+76px)] max-[980px]:pb-[110px]"
+        className="relative z-[2] mx-auto max-w-content pt-[calc(var(--spacing-menu)+28px)] pr-10 pb-16 pl-[140px] max-[980px]:px-4 max-[980px]:pt-[calc(var(--spacing-menu)+76px)] max-[980px]:pb-12"
       >
         {children}
         <footer className="sys mt-24 flex flex-wrap justify-between gap-x-8 gap-y-2 text-muted">
@@ -60,16 +61,6 @@ export async function SiteChrome({ children }: { children: ReactNode }) {
           </span>
         </footer>
       </main>
-
-      <div
-        role="toolbar"
-        aria-label="Pages and themes"
-        className="fixed bottom-3.5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-2xl border border-line bg-[color-mix(in_srgb,var(--win)_80%,transparent)] p-1.5 shadow-win backdrop-blur-[14px] max-[980px]:inset-x-4 max-[980px]:translate-x-0 max-[980px]:justify-between max-[980px]:gap-0.5 max-[980px]:px-1"
-      >
-        <DockNav />
-        <span className="mx-1 h-[22px] w-px shrink-0 bg-line max-[980px]:mx-0.5" aria-hidden="true" />
-        <ThemeSwatches />
-      </div>
     </>
   );
 }

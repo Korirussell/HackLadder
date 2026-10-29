@@ -82,7 +82,7 @@ export function ThemePicker({ name, current }: { name: string; current: ThemeId 
         ))}
         <label className="col-span-full flex items-center gap-2 text-[15px]">
           <input type="radio" name="theme" value="" checked={picked === ""} onChange={() => setPicked("")} />
-          Follow each visitor&apos;s own theme
+          Follow each visitor&apos;s device (light or dark)
         </label>
       </fieldset>
       <div className="flex flex-wrap items-center gap-3">

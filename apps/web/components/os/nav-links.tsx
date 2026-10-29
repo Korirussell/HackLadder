@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 
 import { Icon } from "./icons";
-import { DESKTOP, DOCK, isCurrent, MENU } from "./nav";
+import { DESKTOP, isCurrent, MENU } from "./nav";
 
 // usePathname suspends on routes whose params aren't known at build time, so every nav that
 // marks the current page renders a plain version as its fallback (Next docs: usePathname).
@@ -50,24 +50,6 @@ function Desktop({ pathname }: { pathname: string | null }) {
   );
 }
 
-function DockLinks({ pathname }: { pathname: string | null }) {
-  return (
-    <>
-      {DOCK.map((d) => (
-        <Link
-          key={d.href}
-          href={d.href}
-          aria-current={pathname && isCurrent(d.href, pathname) ? "page" : undefined}
-          className="sys flex items-center rounded-[10px] px-3 py-[7px] hover:bg-chrome aria-[current=page]:bg-ink aria-[current=page]:text-bg max-[980px]:px-2"
-        >
-          {d.label}
-          <span className="max-[980px]:hidden">.app</span>
-        </Link>
-      ))}
-    </>
-  );
-}
-
 function withPathname(View: (p: { pathname: string | null }) => React.ReactNode) {
   function Active() {
     return <View pathname={usePathname()} />;
@@ -83,4 +65,3 @@ function withPathname(View: (p: { pathname: string | null }) => React.ReactNode)
 
 export const MenuLinks = withPathname(Menu);
 export const DesktopIcons = withPathname(Desktop);
-export const DockNav = withPathname(DockLinks);

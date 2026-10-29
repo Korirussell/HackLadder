@@ -1,4 +1,4 @@
-// Where the menu bar, desktop icons and dock point (§4.3).
+// Where the menu bar, desktop icons and mobile menu point (§4.3).
 
 export const MENU = [
   { href: "/hackers", label: "Hackers" },
@@ -17,13 +17,6 @@ export const DESKTOP: { href: string; label: IconName }[] = [
   { href: "/crews", label: "crews" },
   { href: "/me", label: "profile" },
 ];
-
-export const DOCK = [
-  { href: "/", label: "home" },
-  { href: "/hackers", label: "ladder" },
-  { href: "/events", label: "events" },
-  { href: "/me", label: "me" },
-] as const;
 
 /** Whether a nav item is the current section: "/" only on the homepage, others by prefix. */
 export function isCurrent(href: string, pathname: string): boolean {

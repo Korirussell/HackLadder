@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { getHacker } from "@/lib/data";
 import { fileName, num, plural, topPercent } from "@/lib/format";
 import { renderCard } from "@/lib/og";
+import { toTheme } from "@/lib/theme";
 import { avatarUrl } from "@/lib/profile-layout";
 
-// A hacker's rank card, in their profile theme once claimed; unclaimed profiles use Paper (§4.7).
+// A hacker's rank card, in their profile theme once claimed; unclaimed profiles use Sakura (§4.7).
 export async function GET(_req: Request, ctx: RouteContext<"/og/h/[slug]">) {
   const { slug } = await ctx.params;
   const h = await getHacker(slug);
@@ -27,6 +28,6 @@ export async function GET(_req: Request, ctx: RouteContext<"/og/h/[slug]">) {
       ],
       status: ["hackladder.com", `/h/${h.slug}`],
     },
-    h.profile_theme ?? "paper",
+    toTheme(h.profile_theme) ?? "sakura",
   );
 }

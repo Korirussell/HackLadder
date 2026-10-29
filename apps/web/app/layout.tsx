@@ -35,15 +35,15 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F2EEE5" },
-    { media: "(prefers-color-scheme: dark)", color: "#171512" },
+    { media: "(prefers-color-scheme: light)", color: "#ECE8FA" },
+    { media: "(prefers-color-scheme: dark)", color: "#050507" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // HEAD_SCRIPT sets data-theme and the boot flag before React hydrates.
-    <html lang="en" data-theme="paper" className={`${bricolage.variable} ${plexMono.variable}`} suppressHydrationWarning>
+    <html lang="en" data-theme="sakura" className={`${bricolage.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: HEAD_SCRIPT }} />
       </head>

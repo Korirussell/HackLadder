@@ -13,13 +13,10 @@ import { warpPaths } from "./warp";
 type Palette = { bg: string; grid: string; win: string; chrome: string; ink: string; muted: string; line: string; accent: string; accentInk: string };
 
 export const OG_PALETTES: Record<ThemeId, Palette> = {
-  paper: { bg: "#F2EEE5", grid: "#DCD5C7", win: "#FFFDF8", chrome: "#E9E3D8", ink: "#17140F", muted: "#6F685E", line: "#D6CFC2", accent: "#FF5B14", accentInk: "#FFFFFF" },
-  sumi: { bg: "#171512", grid: "#2A2621", win: "#211E1A", chrome: "#2A2622", ink: "#F2EEE5", muted: "#A39B8E", line: "#3A352E", accent: "#FF6A26", accentInk: "#171512" },
   sakura: { bg: "#ECE8FA", grid: "#D3CBF0", win: "#FFFFFF", chrome: "#E4DEF8", ink: "#1B1530", muted: "#6C6488", line: "#DCD4F5", accent: "#FF3D7F", accentInk: "#FFFFFF" },
   midnight: { bg: "#050507", grid: "#1E1E2A", win: "#0F0F15", chrome: "#191922", ink: "#F3F1FA", muted: "#8E8AA3", line: "#26263A", accent: "#FF2E93", accentInk: "#0B0B0F" },
 };
 
-const SIGNAL = "#FF5B14";
 const W = 1200;
 const H = 630;
 const GRID = warpPaths(W, H, 56, 0.22);
@@ -59,7 +56,7 @@ export type Card = {
   status: [string, string];
 };
 
-export async function renderCard(card: Card, theme: ThemeId = "paper"): Promise<ImageResponse> {
+export async function renderCard(card: Card, theme: ThemeId = "sakura"): Promise<ImageResponse> {
   const p = OG_PALETTES[theme];
   const loaded = await getFonts();
   const sys = loaded.some((f) => f.name === "Plex") ? "Plex" : undefined;
@@ -136,7 +133,7 @@ export async function renderCard(card: Card, theme: ThemeId = "paper"): Promise<
             }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <MarkGlyph rail={p.ink} />
+              <MarkGlyph rail={p.ink} rung={p.accent} />
               {card.status[0]}
             </span>
             <span>{card.status[1]}</span>
@@ -179,14 +176,14 @@ function Bar({ p, sys, children }: { p: Palette; sys?: string; children: ReactNo
   );
 }
 
-function MarkGlyph({ rail }: { rail: string }) {
+function MarkGlyph({ rail, rung }: { rail: string; rung: string }) {
   return (
     <svg width={30} height={30} viewBox="0 0 100 100">
       <g transform="translate(10.628 0) skewX(-12)">
         <rect x="20" y="8" width="19" height="84" rx="3" fill={rail} />
         <rect x="61" y="8" width="19" height="84" rx="3" fill={rail} />
         <rect x="38" y="54" width="24" height="12" fill={rail} />
-        <rect x="38" y="24" width="24" height="12" fill={SIGNAL} />
+        <rect x="38" y="24" width="24" height="12" fill={rung} />
       </g>
     </svg>
   );

@@ -81,7 +81,7 @@ Every piece is here because the problem needs it. Don't add infrastructure witho
 
 ## 4. Design system
 
-**The design reference is `design/reference.html`. Open it in a browser before building any page.** It has three pages (home, profile, event), switched from the dock, and the four shipped themes. If this section and the reference disagree, the reference wins; then update this section.
+**The design reference is `design/reference.html`. Open it in a browser before building any page.** It has three pages (home, profile, event), switched from the dock, and four themes, of which the site ships Sakura and Midnight (2026-10-29); the reference's dock and other two themes are retired. If this section and the reference disagree, the reference wins; then update this section.
 
 **The style in one line:** Brand Appart's structure, reskinned as a clean Japanese-tech desktop OS.
 
@@ -96,7 +96,7 @@ Earlier directions are archived:
 
 ### 4.1 Themes and tokens
 
-Four themes ship, in this order everywhere they're listed (dock, `/me` picker, docs): **Paper, Sumi, Sakura, Midnight**. Every color in the UI comes from these tokens; nothing is hard-coded.
+Two themes ship (2026-10-29): **Sakura** (light) and **Midnight** (dark), in that order everywhere they're listed. Paper and Sumi are retired; their columns stay below for reference. Every color in the UI comes from these tokens; nothing is hard-coded.
 
 | Token | Paper (default light) | Sumi (default dark) | Sakura | Midnight | Use |
 |---|---|---|---|---|---|
@@ -154,7 +154,7 @@ Two families, each with one job:
   - The title bar has three lights (the first in accent), a file-style title (`search.app`, `~/ladder`, `rating_history`, `treehacks_2026.mov`) and right-aligned meta.
   - An optional status bar at the bottom reads like an OS: "1 of 412,880 selected", "page 1 / 8,258".
   - Radius is 14.
-- **Dock** (fixed, bottom-center): quick page links plus the theme swatches. On mobile it becomes a full-width bottom bar, and it replaces the old **OPEN** question about a tab bar vs. hamburger.
+- **No dock** (removed 2026-10-29, owner's call). On phones, where the menu links and desktop icons are hidden, a menu button at the right of the menu bar opens a sheet of links (`components/os/mobile-menu.tsx`).
 - **Wallpaper:** a warped grid (fisheye bulge) drawn as thin vector lines in `--grid`, fixed behind everything, redrawn on resize. Smaller warped grids sit inside media-player screens.
 - **Page frame:** max-width 1440, left padding 140px (clearing the icons), and a 16px gutter on mobile with no horizontal scroll.
 - **Alignment:** headlines are left-aligned. Section heads have the h2 on the left and a short `--muted` explainer on the right.
@@ -204,13 +204,13 @@ The voice is plain, confident and a little competitive: "Every hacker who's won,
 
 ### 4.7 Theme behavior
 
-- **First visit:** follow the device. Light mode gets **Paper**; dark mode gets **Sumi**.
-- **Switching:** the dock swatches switch the theme. The choice is saved in `localStorage` (`hl-theme`) as a per-viewer convenience, wrapped in try/catch. A signed-in user's choice also saves to their account (`people.ui_theme`) so it follows them across devices.
+- **Always follow the device:** light mode gets **Sakura**, dark mode gets **Midnight**. There is no viewer theme switcher (2026-10-29).
+- **Retired values:** stored `profile_theme` values `paper` and `sumi` read as Sakura and Midnight (`toTheme()` in `lib/theme.ts`), keeping the owner's light or dark choice. `people.ui_theme` is no longer written or read.
 - **Profile themes (claim perk):** a claimed hacker picks a theme for their **profile page and share card** (`people.profile_theme`).
   - Visitors see that profile in the owner's theme. The menu bar shows a small "theme: Sakura" chip and a "use mine" toggle that switches back to the viewer's own theme.
   - Unclaimed profiles render in the viewer's theme.
 - **OG share cards** (`/og/h/[slug]`) render in the profile's theme. Unclaimed profiles use Paper.
-- **Implementation:** set `data-theme` on `<html>` before first paint, using a tiny inline script in `<head>`, to avoid a flash of the wrong theme. Each theme is one CSS block of the tokens in §4.1. Adding a theme later means adding one block, one swatch and one OG palette; the archived candidates (Washi, Platinum, Metro, Matcha) are ready in `design/explorations/themes.html`.
+- **Implementation:** set `data-theme` on `<html>` before first paint, using a tiny inline script in `<head>`, to avoid a flash of the wrong theme. Each theme is one CSS block of the tokens in §4.1. Adding a theme later means adding one block, one entry in `THEMES` and one OG palette; the archived candidates (Washi, Platinum, Metro, Matcha) are ready in `design/explorations/themes.html`.
 
 ### 4.8 Logo: the H-ladder mark
 
@@ -238,7 +238,7 @@ The mark is a slanted H drawn as a two-rung ladder, with the top rung in signal 
 
 **Rules:**
 - The orange top rung is the only orange in the mark. Never recolor the rails.
-- **In-site exception:** the small glyph in the menu bar uses the theme tokens `--rail` and `--rung`, so its top rung matches the theme accent (orange in Paper and Sumi, pink in Sakura and Midnight). Everywhere else (logo files, favicon, app icon, social avatars, OG cards) uses the official orange.
+- **In-site exception:** the small glyph in the menu bar uses the theme tokens `--rail` and `--rung`, so its top rung matches the theme accent (pink in both shipped themes). The logo files, favicon, app icon and social avatars use the Sakura palette (2026-10-29): deep-purple ink `#1B1530`, lavender `#ECE8FA` and a pink top rung `#FF3D7F`. OG cards use their theme's ink and accent.
 - Minimum size is 16px (tested).
 - Clear space around the mark is at least one rail width.
 
@@ -585,7 +585,7 @@ All public pages are statically generated with ISR (revalidated on publish throu
 | `/crews` | Best crews board (`/duos` redirects here) |
 | `/how-ratings-work` | Full public methodology: plain language first, math in expandable sections, simulation results |
 | `/claim` | Claim flow (§11) |
-| `/me` | Signed-in owner dashboard: edit links, bio, school; **profile theme picker** (Paper, Sumi, Sakura, Midnight, with a live preview of profile and share card); manage merges; corrections status; hide profile; email preferences |
+| `/me` | Signed-in owner dashboard: edit links, bio, school; **profile theme picker** (Sakura or Midnight, or follow the visitor's device, with a live preview of profile and share card); manage merges; corrections status; hide profile; email preferences |
 | `/remove` | No-login removal through the bio code |
 | `/og/h/[slug]`, `/og/s/[slug]`, `/og/e/[slug]` | 1200×630 share cards styled as an OS window on the warped grid: giant rank numeral, name, rating, "Top 3%", best win. Profiles render in their owner's `profile_theme`. |
 | `/upcoming` (Phase 2) | Upcoming events with field-strength forecasts and, for signed-in claimed users, "your odds" |
@@ -764,6 +764,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-21: Profile customization for claimed owners (owner's request): an uploaded photo, a trophy cabinet they can arrange, up to 3 pinned projects, hidden projects (display only) and a list / cards / compact project layout. The layout is one validated jsonb column (`people.profile_layout`), not new tables: it's small, owned by one row, and only ever read with the profile. The server keeps only the owner's own trophy keys and project ids. Photos go through the server action with the owner's session, so storage RLS (folder = their person id) applies.
 - 2026-10-21: The school picker searches ~10k universities from Hipo's university-domains-list (MIT, `pipeline/config/schools/`, `hl schools load`) by every word of the name; the `/hackers` filter lists only schools someone is in (`school_options()`). The table had 0 schools, so nobody could pick one. Owners still choose their school themselves (§16); unlisted schools still go to an admin.
 - 2026-10-21: Rating math experiments, not adopted: letting σ shrink with experience (an explicit precision gain per event) froze ratings, since Plackett-Luce's μ step scales with σ² (simulation hacker correlation 0.62 → −0.04); scaling up non-placing losses ×2/×4/×8 gave 0.43/0.26/0.16 and let beginner jams into the event top 20. The live ladder's problems are coverage: 167 of 1,319 in-scope events had projects.
+- 2026-10-29: Themes cut to **Sakura** (light) and **Midnight** (dark), following the device, with no switcher. The dock is gone; phones get a menu button. The logo moves to the Sakura palette (purple, lavender, pink rung). Owner's calls.
 - 2026-10-23: Usage warnings (Vercel ISR writes at 75% of Hobby's 200k; Supabase Nano "depleting its Disk IO budget"). Diagnosis:
   - **Vercel:** about 80k crawlable URLs (70k profiles, mostly provisional, and 10k empty school pages) regenerated hourly and after every publish, with output that really changed: live counts in the chrome, ratings during the backfill.
   - **Supabase:** writes, not reads (100% cache hit, 1.6 GB of WAL since 2026-10-02). The sources were the backfill, about 2 full republishes a day, and no-op upserts (124k account rewrites).
@@ -787,7 +788,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 
 - **School data:** does a public Devpost user page show school? **Answered 2026-10-14: no.** Public user pages have no school or education field (checked `aaravwattal`, `NilsIrl`, `dylanjpaulson`; the only "Education" on the page is an interest tag). Devpost may collect school privately for eligibility, but it isn't published. School sometimes appears in the free-text bio ("EE+CS @ Stanford"), which is also shown under the member's name on project pages. So school comes from claims, and school boards start sparse. **Decided:** school comes only from the owner after claiming (no bio parsing, no inference). School boards fill in as people claim.
 - ~~**Analytics:**~~ Vercel Web Analytics (decided 2026-10-15; `<Analytics />` in the root layout). Page views are free; custom events (search, claim_started, ...) need a paid Vercel plan, so revisit when Phase 4 adds them.
-- ~~**Mobile nav:**~~ the dock becomes a full-width bottom bar on mobile (§4.3, redesign 2026-10-16).
+- ~~**Mobile nav:**~~ a menu button in the menu bar opens a sheet of links (§4.3, 2026-10-29; the bottom bar is gone).
 - ~~**Domain:**~~ **www.hackladder.com** (bought 2026-10-15). The apex hackladder.com redirects to www. Site URL, Supabase auth redirects and the Resend sending domain all use it.
 - ~~**Devpost outreach:** before launch or after.~~ After launch (§9.7).
 - ~~**Season definition:**~~ Aug–Jul academic year (decided 2026-10-14).

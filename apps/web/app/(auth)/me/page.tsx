@@ -8,7 +8,7 @@ import { LoadingWin } from "@/components/site/loading";
 import { SectionHead, Win } from "@/components/os/window";
 import { asPage, type HackerPage } from "@/lib/pages";
 import { createClient } from "@/lib/supabase/server";
-import { isTheme } from "@/lib/theme";
+import { toTheme } from "@/lib/theme";
 
 import { DetailsForm, HideForm, ThemePicker } from "./forms";
 import { LayoutEditor, PhotoForm, SchoolPicker } from "./profile-editor";
@@ -149,7 +149,7 @@ async function Dashboard() {
           )}
         </Win>
         <Win title="profile_theme" meta="claim perk">
-          <ThemePicker name={me.display_name} current={isTheme(me.profile_theme) ? me.profile_theme : null} />
+          <ThemePicker name={me.display_name} current={toTheme(me.profile_theme)} />
         </Win>
       </div>
       <div className="grid gap-6">

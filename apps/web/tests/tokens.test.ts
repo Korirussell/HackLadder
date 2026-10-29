@@ -24,9 +24,10 @@ function themeBlock(source: string, theme: string): Record<string, string> {
 }
 
 describe("design tokens", () => {
-  it("ships the reference's themes, in order", () => {
+  it("ships only themes from the reference", () => {
+    // The site ships two of the reference's four (Sakura and Midnight, §15 2026-10-29).
     const inReference = [...reference.matchAll(/data-t="([a-z]+)"/g)].map((m) => m[1]);
-    expect(THEMES.map((t) => t.id)).toEqual(inReference);
+    for (const t of THEMES) expect(inReference).toContain(t.id);
   });
 
   describe.each(THEMES.map((t) => t.id))("%s", (theme) => {
@@ -37,8 +38,8 @@ describe("design tokens", () => {
     });
   });
 
-  it("uses Paper when no theme is set", () => {
-    expect(globals).toMatch(/:root,\s*\[data-theme="paper"\]\s*\{/);
+  it("uses Sakura when no theme is set", () => {
+    expect(globals).toMatch(/:root,\s*\[data-theme="sakura"\]\s*\{/);
   });
 
   it("defines colors only from the theme tokens", () => {

@@ -332,6 +332,7 @@ Right. After the first backfill it's light:
 | **Backfill** (once) | Manually, from a laptop or VM | All ended events with winners announced. Order of magnitude: several hundred thousand project pages, which is **days** of crawling at 1 req/1.5s (**VERIFY** once the real counts are known). Resumable, in chunks. |
 | **Weekly incremental** | Mondays 06:00 UTC, GitHub Actions | List API pages until we hit events we've already seen, plus galleries and projects for events that ended in the last 60 days. A few thousand requests, under an hour. |
 | **Daily upcoming** | Daily 05:00 UTC | List API for upcoming and open events only. A handful of requests. |
+| **Add yourself** (on request) | `add-hacker.yml`, dispatched by `/add` | Lookup reads the portfolio and up to 30 project pages, outside the `pipeline-db` lock. Then crawl, rate (`--if-changed`), revalidate and finish run under that lock. `crawl-events.yml` looks up waiting requests before its crawl and finishes them after rating. |
 | **Ratings and publish** | After each weekly crawl, plus nightly to apply approved corrections | No crawling. Pure compute against Postgres. |
 
 The site shows "Updated every Monday".
@@ -585,6 +586,7 @@ All public pages are statically generated with ISR (revalidated on publish throu
 | `/crews` | Best crews board (`/duos` redirects here) |
 | `/how-ratings-work` | Full public methodology: plain language first, math in expandable sections, simulation results |
 | `/claim` | Claim flow (§11) |
+| `/add`, `/add/[username]` | Add yourself by Devpost username, and the request's live status (spec 2026-10-29-find-yourself) |
 | `/me` | Signed-in owner dashboard: edit links, bio, school; **profile theme picker** (Paper, Sumi, Sakura, Midnight, with a live preview of profile and share card); manage merges; corrections status; hide profile; email preferences |
 | `/remove` | No-login removal through the bio code |
 | `/og/h/[slug]`, `/og/s/[slug]`, `/og/e/[slug]` | 1200×630 share cards styled as an OS window on the warped grid: giant rank numeral, name, rating, "Top 3%", best win. Profiles render in their owner's `profile_theme`. |
@@ -693,6 +695,9 @@ uv run pytest -m db                                # tests needing DATABASE_URL 
 uv run hl crawl list [--incremental] [--max-pages N] [--restart]  # full crawl resumes from its checkpoint
 uv run hl mlh crawl && uv run hl mlh match    # MLH seasons, then match them to Devpost (review at /admin/mlh)
 uv run hl crawl events [--limit N] [--slug S]  # galleries + projects for in-scope events, resumable
+uv run hl add lookup [--username U]            # add yourself: read waiting requests' portfolios and queue their events (no lock)
+uv run hl add crawl                            # crawl the queued events of every open request
+uv run hl add finish                           # mark every open request whose queued events are loaded as live
 uv run hl parse --all
 uv run hl rate                                 # replay, analyze, write *_next, publish_gold(), refresh search
 curl -X POST $SITE/api/revalidate -H "Authorization: Bearer $REVALIDATE_SECRET"  # refresh cached pages (the workflows do this)
@@ -720,6 +725,7 @@ supabase migration new <name>
 
 Append-only. Format: `YYYY-MM-DD: decision. Why.`
 
+- 2026-11-02: The home hero is "Where do you rank?", with "Not here? Add yourself" under the search field, and every no-results state links to `/add` (pre-filled when the query is a username). Visitors who aren't found enter their Devpost username and watch `/add/<username>` poll every 4 seconds for up to 10 minutes. Requests live in `add_requests`, reached only through `request_add` and `add_request_status`, so anon never selects the table. Limits: 30 portfolio projects, 20 queued events per request (the rest are backlog, queued for the daily crawl), one request per username per 24 hours (a `failed` one can be retried), and 200 requests site-wide per day, so one viral day can't flood the crawler. The lookup runs outside the lock, so a request doesn't wait behind the backfill, and the backfill crawls requested events first. `hl add crawl` and `hl add finish` serve every open request, because GitHub keeps one pending run per concurrency group and cancels the rest. Owner's call: an event counts as loaded only once its crawl checkpoint (`event:<id>`) exists, so a crawl that times out mid-event can't make a request live, while a finished event with zero projects still loads. No email when a profile goes live, since there's no mail service yet; the status page is the notification.
 - 2026-10-14: Name is **HackLadder**. Style is inspired by brandappart.com; the visual source of truth is `design/reference.html`.
 - 2026-10-14: Use OpenSkill Plackett-Luce, not Elo. Hackathons are many-team, team-based events.
 - 2026-10-14: Event rating is 70% elite count and 30% win odds. In simulation, win odds alone over-rated beginner jams (event correlation 0.46 → 0.84 with the blend).

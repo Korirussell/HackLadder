@@ -54,7 +54,8 @@ live the same day.
 | `failed` | "We couldn't reach Devpost. Try again in a few minutes." (and a retry button) |
 
   Event list rows: title, date and one state: **rated** (already on the site), **queued**,
-  **loaded**, or **doesn't count**, with a reason (`online`, `not an MLH event`,
+  **queued for the daily crawl** (past the 20 this request takes), **loaded** (its crawl
+  checkpoint exists, §3), or **doesn't count**, with a reason (`online`, `not an MLH event`,
   `winners not announced`, `high school`, `not on HackLadder`).
 - `robots.ts` disallows `/add`.
 
@@ -81,30 +82,34 @@ group, and its only writes are to `add_requests`:
      anything else (admin exclusions) gives `excluded`;
    - in scope but `winners_announced` false: **doesn't count yet**, `winners not announced`;
    - in scope with projects loaded: **rated**;
-   - in scope without projects: **queued**, at most 20 per request.
+   - in scope without projects: **queued**, at most 20 per request. The rest are **backlog**,
+     queued for the daily crawl (which gets them).
 6. Write `events`. If anything is queued, set `crawling` and mark those slugs as requested (step 2
    of Job 2). Otherwise set `nothing_counts` and stop.
 
 **Job 2, crawl** (`needs: lookup`, only when something is queued). It runs in the `pipeline-db`
 concurrency group:
 
-1. `hl crawl events --slug …` for the queued slugs. As each event finishes, its row in `events`
-   becomes **loaded**.
+1. `hl add crawl` crawls the queued slugs of every open request (`hl crawl events --slug …`). An
+   event becomes **loaded** once its crawl checkpoint (`event:<id>`) exists. So a crawl that
+   times out mid-event can't make a request live, and a finished event with zero projects
+   still loads (owner's decision, 2026-11-02).
 2. `hl rate --if-changed`, then revalidate (the same steps as `crawl-events.yml`).
-3. `hl add finish --username U`: set `live` with the person slug, which now exists because the
+3. `hl add finish` takes no arguments and finishes every request: it sets `live`, with the person
+   slug, on each request whose queued events are all loaded. The person now exists because the
    crawl created it.
 
 **Backfill priority:** `crawl_events` without slugs (the daily backfill) first crawls slugs on
 open `add_requests` with status `crawling`. It checks again every 10 events. A request made while
 the backfill holds the lock is loaded within minutes, and goes live when that run rates:
-`crawl-events.yml` runs `hl add finish --all` after its rate step, which marks every `crawling`
-request whose queued events are all loaded as `live`. Job 2 of that request then waits behind the
+`crawl-events.yml` runs `hl add finish` after its rate step, which marks every `crawling` request
+whose queued events are all loaded as `live`. Job 2 of that request then waits behind the
 lock. It finds nothing new and exits quickly, because `--if-changed` skips the rating and
 already-crawled slugs are skipped by checkpoint.
 
 **Dispatch:** the `request_add` server action creates or returns the request, and dispatches the
 workflow only when the row is new, using the existing `dispatchWorkflow` (GitHub token in Vercel
-env).
+env). If dispatch fails, the daily crawl's `hl add lookup` (no username) picks the request up.
 
 ## 4. Data
 
@@ -163,7 +168,7 @@ index on (lower(username), created_at desc)
 
 - `supabase/migrations/20261030000100_add_requests.sql`, `supabase/tests/database/add_requests.test.sql`
 - `pipeline/src/hackladder/parse/user.py` (`parse_portfolio`), `pipeline/src/hackladder/add.py`,
-  `cli.py` (`hl add lookup`, `hl add finish [--username U | --all]`), `crawl/events.py` (request priority), tests
+  `cli.py` (`hl add lookup [--username U]`, `hl add crawl`, `hl add finish`), `crawl/events.py` (request priority), tests
 - `.github/workflows/add-hacker.yml`, `crawl-events.yml` (marking backfill-served requests live)
 - `apps/web/app/(site)/page.tsx` (hero), `components/site/search-box.tsx`, `app/(site)/search/page.tsx`,
   `app/(site)/add/page.tsx`, `app/(site)/add/[username]/page.tsx`, `app/(site)/add/actions.ts`,

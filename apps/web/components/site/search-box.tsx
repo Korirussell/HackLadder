@@ -92,7 +92,7 @@ export function SearchBox({
         else if (normalizeQuery(q)) router.push(`/search?q=${encodeURIComponent(q.trim())}`);
       }}
     >
-      <label className={`flex flex-1 items-center gap-2.5 rounded-[10px] border border-line bg-bg px-3.5 ${large ? "py-4 text-[20px]" : "py-3"} focus-within:border-select focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--select)_25%,transparent)] max-[980px]:basis-full`}>
+      <label className={`flex flex-1 items-center gap-2.5 rounded-[10px] border border-line bg-bg px-3.5 ${large ? "py-4" : "py-3"} focus-within:border-select focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--select)_25%,transparent)] max-[980px]:basis-full`}>
         <span className="sr-only">Search hackers, schools and events</span>
         <input
           ref={input}
@@ -129,7 +129,7 @@ export function SearchBox({
           aria-controls={listId}
           aria-autocomplete="list"
           aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
-          className="min-w-0 flex-1 bg-transparent text-[18px] text-ink placeholder:text-muted focus:outline-none"
+          className={`min-w-0 flex-1 bg-transparent ${large ? "text-[22px]" : "text-[18px]"} text-ink placeholder:text-muted focus:outline-none`}
         />
         <kbd className="sys rounded-[5px] border border-line px-1.5 py-px text-[11px] text-muted max-[980px]:hidden">⌘K</kbd>
       </label>

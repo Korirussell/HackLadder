@@ -15,7 +15,8 @@ export function AddForm({ initial }: { initial: string }) {
       <label className="grid gap-1.5">
         <span className="font-semibold">Your Devpost username</span>
         <span className="sys text-[12px] text-muted">devpost.com/<b>username</b></span>
-        <input name="username" defaultValue={initial} required maxLength={80} autoComplete="off" spellCheck={false} className={fieldClass} />
+        {/* After an error React resets the form, so show what was typed again. */}
+        <input key={state.username ?? ""} name="username" defaultValue={state.username ?? initial} required maxLength={80} autoComplete="off" spellCheck={false} className={fieldClass} />
       </label>
       {state.error && <p role="alert" className="text-[15px]">{state.error}</p>}
       <div>

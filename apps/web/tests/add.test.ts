@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addHref, asUsername, isFinished, statusCopy, type AddRequest } from "@/lib/add";
+import { addHref, asUsername, decodeSegment, isFinished, statusCopy, type AddRequest } from "@/lib/add";
 
 const req = (status: AddRequest["status"], extra: Partial<AddRequest> = {}): AddRequest => ({
   username: "kori",
@@ -12,6 +12,13 @@ const req = (status: AddRequest["status"], extra: Partial<AddRequest> = {}): Add
 });
 
 describe("add-me (spec 2026-10-29)", () => {
+  it("decodes a path segment, and returns null for malformed percent-encoding", () => {
+    expect(decodeSegment("kori%2Drussell")).toBe("kori-russell");
+    expect(decodeSegment("%E0%A4%A")).toBeNull();
+    expect(decodeSegment("%")).toBeNull();
+    expect(asUsername(decodeSegment("%zz"))).toBeNull();
+  });
+
   it("reads a Devpost username from what people paste", () => {
     expect(asUsername("jemsbhai")).toBe("jemsbhai");
     expect(asUsername("  @jemsbhai ")).toBe("jemsbhai");

@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 import { LoadingWin } from "@/components/site/loading";
 import { SectionHead } from "@/components/os/window";
-import { asUsername } from "@/lib/add";
+import { asUsername, decodeSegment } from "@/lib/add";
 import { getAddRequest } from "@/lib/add-data";
 
 import { AddStatusView } from "./status-view";
@@ -23,7 +23,7 @@ export default function AddStatusPage(props: PageProps<"/add/[username]">) {
 }
 
 async function Status({ params }: Pick<PageProps<"/add/[username]">, "params">) {
-  const username = asUsername(decodeURIComponent((await params).username));
+  const username = asUsername(decodeSegment((await params).username));
   if (!username) notFound();
   const r = await getAddRequest(username);
   if (!r) redirect(`/add?u=${encodeURIComponent(username)}`);

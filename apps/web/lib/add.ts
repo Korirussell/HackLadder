@@ -23,6 +23,16 @@ export function asUsername(raw: string | null | undefined): string | null {
   return DEVPOST_USERNAME.test(u) ? u : null;
 }
 
+/** A URL path segment, decoded; null when its percent-encoding is malformed ("%E0%A4%A"), where
+ * decodeURIComponent throws, so a bad link is a 404 or a 400 rather than a 500. */
+export function decodeSegment(segment: string): string | null {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+}
+
 /** Where "Not here? Add yourself" goes, pre-filled when the search looked like a username. */
 export function addHref(q?: string | null): string {
   const u = asUsername(q);

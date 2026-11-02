@@ -42,6 +42,13 @@ jobs:
           path: pipeline/.cache/raw
           key: raw-pages-${{ github.run_id }}
           restore-keys: raw-pages-
+      # Requests whose dispatch never ran get looked up here; their events are then crawled
+      # first by the backfill (spec 2026-10-29-find-yourself).
+      - name: Look up waiting add-me requests
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run hl add lookup
       - name: Crawl
         timeout-minutes: 290  # leave time to rate whatever was loaded
         continue-on-error: true
@@ -70,3 +77,7 @@ jobs:
           if [ -n "$REVALIDATE_SECRET" ]; then
             curl -fsS -X POST https://www.hackladder.com/api/revalidate -H "Authorization: Bearer $REVALIDATE_SECRET"
           fi
+      - name: Finish add-me requests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run hl add finish

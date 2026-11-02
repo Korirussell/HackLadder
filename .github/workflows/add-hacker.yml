@@ -1,0 +1,86 @@
+name: Add a hacker
+
+# Started by the site when someone asks to be added (spec 2026-10-29-find-yourself): read their
+# Devpost portfolio, then crawl the hackathons that count, rate, refresh the site and mark the
+# request live. Lookup takes no lock; the crawl waits its turn behind any other pipeline run.
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: "Devpost username"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  lookup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: pipeline
+    outputs:
+      queued: ${{ steps.lookup.outputs.queued }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pipeline/uv.lock
+      - run: uv sync --locked --no-dev
+      - name: Look up
+        id: lookup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          USERNAME: ${{ inputs.username }}
+        # Checked before use: the input comes from a dispatch, not from this repo.
+        run: |
+          [[ "$USERNAME" =~ ^[A-Za-z0-9_-]{1,40}$ ]] || { echo "not a Devpost username: $USERNAME"; exit 1; }
+          uv run hl add lookup --username "$USERNAME"
+
+  crawl:
+    needs: lookup
+    if: needs.lookup.outputs.queued == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    concurrency:
+      group: pipeline-db  # never overlaps another crawl or a rating run
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pipeline/uv.lock
+      - run: uv sync --locked --no-dev
+      - uses: actions/cache@v4
+        with:
+          path: pipeline/.cache/raw
+          key: raw-pages-${{ github.run_id }}
+          restore-keys: raw-pages-
+      - name: Crawl waiting events
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run hl add crawl
+      - name: Rate and publish
+        id: rate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run hl rate --if-changed
+      - name: Revalidate the site
+        if: steps.rate.outputs.published == 'true'
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+        run: |
+          if [ -n "$REVALIDATE_SECRET" ]; then
+            curl -fsS -X POST https://www.hackladder.com/api/revalidate -H "Authorization: Bearer $REVALIDATE_SECRET"
+          fi
+      - name: Finish requests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run hl add finish

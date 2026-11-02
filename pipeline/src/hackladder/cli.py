@@ -16,7 +16,7 @@ from typing import Annotated, Any
 import psycopg
 import typer
 
-from hackladder import db
+from hackladder import add, db
 from hackladder.config import load_rating_config, seed_prize_rules
 from hackladder.crawl.cache import CachedFetcher, iter_cached_pages
 from hackladder.crawl.check import CheckedProject, CheckReport, normalize_event_url, run_check
@@ -332,6 +332,62 @@ def crawl_events_command(
     )
     for failure in result.failures:
         typer.echo(f"  failed: {failure}")
+
+
+add_app = typer.Typer(
+    no_args_is_help=True, help="Add-me requests: look up, crawl and finish (spec 2026-10-29)."
+)
+app.add_typer(add_app, name="add")
+
+
+@add_app.command("lookup")
+def add_lookup_command(
+    username: Annotated[str | None, typer.Option(help="One request; default: every queued one.")] = None,
+    cache_dir: CacheDir = DEFAULT_CACHE,
+) -> None:
+    """Read requesters' Devpost portfolios and sort their hackathons (rated, queued, doesn't count)."""
+    if username is not None and not add.USERNAME.fullmatch(username):
+        raise typer.BadParameter("not a Devpost username", param_hint="--username")
+    queued = False
+    with _connect() as conn, PoliteClient() as client:
+        client.load_robots()
+        fetcher = CachedFetcher(client, cache_dir)
+        for request_id, name in add.pending_lookups(conn, username):
+            status = add.lookup(conn, fetcher, request_id, name)
+            queued |= status == "crawling"
+            typer.echo(f"{name}: {status}")
+    _github_output(queued=queued)
+
+
+@add_app.command("crawl")
+def add_crawl_command(cache_dir: CacheDir = DEFAULT_CACHE) -> None:
+    """Crawl every event an open request is waiting on (a cancelled run's requests are served by the next)."""
+    with _connect() as conn, PoliteClient() as client:
+        slugs = add.queued_slugs(conn)
+        if not slugs:
+            typer.echo("No events waiting.")
+            return
+        client.load_robots()
+        tiers = load_rating_config(conn).prize_tiers
+        with db.pipeline_run(conn, "add crawl") as stats:
+            fetcher = CachedFetcher(client, cache_dir)
+            result = crawl_events(fetcher, conn, tiers, slugs=slugs)
+            stats.pages_fetched = client.requests_made
+            stats.failures = len(result.failures)
+            stats.summary = asdict(result)
+        add.mark_loaded(conn)
+    typer.echo(
+        f"{result.events} of {len(slugs)} events crawled, {result.projects} projects;"
+        f" {len(result.failures)} failed."
+    )
+
+
+@add_app.command("finish")
+def add_finish_command() -> None:
+    """After rating: mark requests live (or nothing_counts) once nothing they wait on is queued."""
+    with _connect() as conn:
+        live, nothing = add.finish(conn)
+    typer.echo(f"{live} live, {nothing} found on none of their events.")
 
 
 def _github_output(**values: object) -> None:

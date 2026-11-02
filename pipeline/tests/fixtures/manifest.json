@@ -142,5 +142,11 @@
     "why": "no display name set: Devpost shows the username",
     "fetched_at": "2026-10-14T20:09:04+00:00",
     "sha256": "2693e106250cd617df8db5e432c6ebcb6efde55c349b17e0e098d9e1be8326f0"
+  },
+  "user/jemsbhai.html": {
+    "url": "https://devpost.com/jemsbhai",
+    "why": "portfolio with a second page (24 projects on page 1)",
+    "fetched_at": "2026-10-29T00:00:00+00:00",
+    "sha256": "5aa0053fff7f9bf496a5c23cd54accedf1aa11ba6ccbb072a0796f3980759cda"
   }
 }

@@ -51,7 +51,7 @@ export function statusCopy(r: AddRequest): { title: string; body: string } {
     case "crawling":
       return {
         title: "Loading your events",
-        body: "Your rating publishes when this run finishes. While the daily crawl is running (09:00–14:00 UTC), that's by about 14:00 UTC.",
+        body: "Your rating publishes when this run finishes, usually within the hour. If the daily crawl is running (09:00–14:00 UTC), it can take until about 14:00 UTC.",
       };
     case "live":
       return { title: "You're live", body: "Your profile now includes these events." };

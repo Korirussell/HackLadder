@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 
 import { requireAdmin } from "@/lib/admin";
+import { dispatchWorkflow as startWorkflow } from "@/lib/github";
 import { nearestFirst, type PriorMatch, searchPattern } from "@/lib/mlh-review";
 import { type PrizeRule, validateRule } from "@/lib/prize-tiers";
 import { type RankTierRow, validateRankTiers } from "@/lib/rank-tiers";
@@ -270,24 +271,10 @@ export async function searchDevpostEvents(
 const RATE_WORKFLOW = "rate-nightly.yml";
 const CRAWL_WORKFLOW = "crawl-events.yml";
 
-/** Starts a GitHub Actions workflow on main. Needs GITHUB_DISPATCH_TOKEN (server-only). */
+/** Starts a GitHub Actions workflow on main, as a form result. */
 async function dispatchWorkflow(workflow: string, inputs?: Record<string, string>): Promise<FormState> {
-  const token = process.env.GITHUB_DISPATCH_TOKEN;
-  const repo = process.env.GITHUB_REPOSITORY ?? "Korirussell/HackLadder";
-  if (!token) {
-    return fail("GitHub Actions isn't connected: set GITHUB_DISPATCH_TOKEN (a fine-grained token with Actions: write).");
-  }
-  const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-    body: JSON.stringify({ ref: "main", ...(inputs && { inputs }) }),
-  });
-  if (res.status !== 204) return fail(`GitHub didn't start the run (HTTP ${res.status}): ${await res.text()}`);
-  return OK;
+  const started = await startWorkflow(workflow, inputs);
+  return started.ok ? OK : fail(started.error);
 }
 
 /** Starts the Rate workflow on GitHub Actions. */

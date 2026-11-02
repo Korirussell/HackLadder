@@ -10,7 +10,7 @@ const AI_CRAWLERS = [
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      { userAgent: "*", allow: "/", disallow: ["/admin", "/me", "/claim", "/sign-in", "/auth", "/api", "/corrections", "/search"] },
+      { userAgent: "*", allow: "/", disallow: ["/admin", "/me", "/claim", "/sign-in", "/auth", "/api", "/corrections", "/search", "/add"] },
       // AI crawlers: no search traffic in return, and every page they fetch is a regeneration (§15 2026-10-23).
       { userAgent: AI_CRAWLERS, disallow: "/" },
     ],

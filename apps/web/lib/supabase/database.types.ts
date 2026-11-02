@@ -58,6 +58,39 @@ export type Database = {
           },
         ]
       }
+      add_requests: {
+        Row: {
+          attempts: number
+          created_at: string
+          events: Json
+          id: number
+          person_slug: string | null
+          status: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          events?: Json
+          id?: never
+          person_slug?: string | null
+          status?: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          events?: Json
+          id?: never
+          person_slug?: string | null
+          status?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       admins: {
         Row: {
           created_at: string
@@ -2331,6 +2364,7 @@ export type Database = {
           username: string
         }[]
       }
+      add_request_status: { Args: { p_username: string }; Returns: Json }
       approve_school_correction: {
         Args: { p_correction_id: number; p_school_name: string }
         Returns: number
@@ -2455,6 +2489,14 @@ export type Database = {
       rank_tier: {
         Args: { p_rank: number; p_top_percent: number }
         Returns: string
+      }
+      request_add: {
+        Args: { p_username: string }
+        Returns: {
+          is_new: boolean
+          status: string
+          username: string
+        }[]
       }
       school_board: {
         Args: { p_season?: string }

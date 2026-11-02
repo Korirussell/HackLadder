@@ -62,10 +62,14 @@ live the same day.
 ## 3. Pipeline
 
 New workflow `.github/workflows/add-hacker.yml`, dispatched by the site with input
-`username` (validated against the same regex in the workflow before use, like `crawl-events.yml`).
+`username` (validated against the same regex in the workflow before use, like `crawl-events.yml`;
+the lookup itself doesn't take it, see Job 1).
 
-**Job 1, lookup** (`hl add lookup --username U`). It runs outside the `pipeline-db` concurrency
-group, and its only writes are to `add_requests`:
+**Job 1, lookup** (`hl add lookup`, no username: it looks up every waiting request). It runs
+outside the `pipeline-db` concurrency group, in its own `add-lookup` group, so only one lookup
+talks to Devpost at a time (§6.2); a pending lookup GitHub cancels for a newer one loses nothing.
+Its only writes are to `add_requests`. A request left `looking_up` for 30 minutes (its runner was
+killed) is waiting again. For each request:
 
 1. Set the status to `looking_up`.
 2. Fetch `devpost.com/<username>` through the existing fetcher (cache, rate limit, robots). A 404
@@ -81,35 +85,47 @@ group, and its only writes are to `add_requests`:
      gives `high school`, `is_online` gives `online`, `not is_mlh` gives `not an MLH event`, and
      anything else (admin exclusions) gives `excluded`;
    - in scope but `winners_announced` false: **doesn't count yet**, `winners not announced`;
-   - in scope with projects loaded: **rated**;
-   - in scope without projects: **queued**, at most 20 per request. The rest are **backlog**,
+   - in scope and crawled (its `event:<id>` checkpoint exists, the same rule as **loaded**): **rated**;
+   - in scope, not crawled yet: **queued**, at most 20 per request. The rest are **backlog**,
      queued for the daily crawl (which gets them).
 6. Write `events`. If anything is queued, set `crawling` and mark those slugs as requested (step 2
    of Job 2). Otherwise set `nothing_counts` and stop.
+7. Last, the **busy check**: GitHub keeps one pending run per concurrency group across all
+   workflows and cancels the older one, so queuing Job 2 into `pipeline-db` could cancel a pending
+   scheduled crawl or rating run (or an admin's MLH crawl). Through the GitHub API (`gh run list`,
+   `actions: read`) the job looks for any active or pending run of `crawl-events.yml`,
+   `crawl-weekly.yml`, `rate-nightly.yml`, or a newer `add-hacker.yml` run. If there is one, or the
+   check fails, Job 2 is skipped: the two crawl workflows crawl requested events first, all three
+   run `hl add finish`, and the daily backfill crawls whatever is left.
 
-**Job 2, crawl** (`needs: lookup`, only when something is queued). It runs in the `pipeline-db`
-concurrency group:
+**Job 2, crawl** (`needs: lookup`, only when something is queued and the busy check found nothing).
+It runs in the `pipeline-db` concurrency group:
 
 1. `hl add crawl` crawls the queued slugs of every open request (`hl crawl events --slug …`). An
    event becomes **loaded** once its crawl checkpoint (`event:<id>`) exists. So a crawl that
    times out mid-event can't make a request live, and a finished event with zero projects
-   still loads (owner's decision, 2026-11-02).
+   still loads (owner's decision, 2026-11-02). Already-checkpointed events are marked loaded
+   first and not recrawled, and each event is marked loaded as it finishes. The step has a
+   90-minute timeout and doesn't fail the job, so the steps below still run.
 2. `hl rate --if-changed`, then revalidate (the same steps as `crawl-events.yml`).
 3. `hl add finish` takes no arguments and finishes every request: it sets `live`, with the person
-   slug, on each request whose queued events are all loaded. The person now exists because the
-   crawl created it.
+   slug, on each request whose queued events are all loaded, unless that person is hidden ("remove
+   me"; the request then ends `nothing_counts`). The person now exists because the crawl created
+   it. First, a request still `crawling` 48 hours after it was made has its queued events moved
+   to backlog (an event whose gallery keeps failing never gets a checkpoint), so it resolves
+   instead of waiting forever.
 
 **Backfill priority:** `crawl_events` without slugs (the daily backfill) first crawls slugs on
 open `add_requests` with status `crawling`. It checks again every 10 events. A request made while
 the backfill holds the lock is loaded within minutes, and goes live when that run rates:
 `crawl-events.yml` runs `hl add finish` after its rate step, which marks every `crawling` request
-whose queued events are all loaded as `live`. Job 2 of that request then waits behind the
-lock. It finds nothing new and exits quickly, because `--if-changed` skips the rating and
-already-crawled slugs are skipped by checkpoint.
+whose queued events are all loaded as `live`. That request's own Job 2 is skipped by the busy
+check (step 7 of Job 1), so it can't cancel a pending scheduled run.
 
 **Dispatch:** the `request_add` server action creates or returns the request, and dispatches the
 workflow only when the row is new, using the existing `dispatchWorkflow` (GitHub token in Vercel
-env). If dispatch fails, the daily crawl's `hl add lookup` (no username) picks the request up.
+env). If dispatch fails, the next lookup (another request's Job 1, or the daily crawl's
+`hl add lookup` step) picks the request up.
 
 ## 4. Data
 

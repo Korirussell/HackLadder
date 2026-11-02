@@ -222,16 +222,24 @@ def queued_slugs(conn: Connection) -> list[str]:
 
 
 def mark_loaded(conn: Connection) -> None:
-    """Queued events that now have projects become loaded."""
+    """Queued events the crawler has finished become loaded.
+
+    "Finished" means the event's crawl checkpoint exists: `crawl_events` sets it only after the whole
+    gallery is done. Project rows alone are not enough (a timed-out crawl leaves a half-loaded event),
+    and an in-scope event with no projects still counts once crawled. Only rows that change are written.
+    """
+    done = (
+        "exists (select 1 from public.hackathons h join public.crawl_checkpoints c"
+        " on c.job = 'event:' || h.id where h.slug = e ->> 'slug')"
+    )
     conn.execute(
-        """
-        update public.add_requests r set updated_at = now(), events = coalesce((
-          select jsonb_agg(case when e ->> 'state' = 'queued' and exists (
-                   select 1 from public.projects p join public.hackathons h on h.id = p.hackathon_id
-                   where h.slug = e ->> 'slug')
-                 then jsonb_set(e, '{state}', '"loaded"') else e end order by x.ord)
-          from jsonb_array_elements(r.events) with ordinality x (e, ord)), '[]'::jsonb)
-        where r.status = 'crawling'
+        f"""
+        update public.add_requests r set updated_at = now(), events = (
+          select jsonb_agg(case when e ->> 'state' = 'queued' and {done}
+                 then jsonb_set(e, '{{state}}', '"loaded"') else e end order by x.ord)
+          from jsonb_array_elements(r.events) with ordinality x (e, ord))
+        where r.status = 'crawling' and exists (
+          select 1 from jsonb_array_elements(r.events) e where e ->> 'state' = 'queued' and {done})
         """
     )
     conn.commit()

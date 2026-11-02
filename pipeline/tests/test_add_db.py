@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Iterator
 from datetime import timedelta
@@ -11,8 +12,9 @@ import psycopg
 import pytest
 from conftest import read_fixture
 
-from hackladder.add import finish, lookup, pending_lookups, queued_slugs
+from hackladder.add import finish, lookup, mark_loaded, pending_lookups, queued_slugs
 from hackladder.crawl.http import FetchFailedError, FetchResult
+from hackladder.db import set_checkpoint
 
 pytestmark = [
     pytest.mark.db,
@@ -28,6 +30,10 @@ def conn() -> Iterator[psycopg.Connection[Any]]:
         yield c
         c.rollback()
         c.execute("delete from public.add_requests where username like 't-add-%'")
+        c.execute(
+            "delete from public.crawl_checkpoints where job in"
+            " (select 'event:' || id from public.hackathons where slug like 't-add-%')"
+        )
         c.execute("delete from public.hackathons where slug like 't-add-%'")
         c.execute(
             "delete from public.ratings where person_id in"
@@ -273,6 +279,7 @@ def test_finish_marks_loaded_events_and_goes_live(conn: psycopg.Connection[Any])
         ).fetchone()
     )
     conn.execute("insert into public.project_members (project_id, account_id) values (%s, %s)", (prj, acc))
+    set_checkpoint(conn, f"event:{hid}", {"done": True})
     conn.execute(
         "insert into public.ratings (person_id, mu, sigma, score, events, placements, grand_prizes,"
         " last_event_on, percentile, provisional)"
@@ -288,3 +295,58 @@ def test_finish_marks_loaded_events_and_goes_live(conn: psycopg.Connection[Any])
     status, slug, events = got
     assert (status, slug, events[0]["state"]) == ("live", "t-add-amy", "loaded")
     assert "t-add-done" not in queued_slugs(conn)
+
+
+def crawling(conn: psycopg.Connection[Any], username: str, events: list[dict[str, Any]]) -> None:
+    conn.execute(
+        "insert into public.add_requests (username, status, events) values (%s, 'crawling', %s)",
+        (username, json.dumps(events)),
+    )
+    conn.commit()
+
+
+def ev(slug: str, state: str) -> dict[str, Any]:
+    return {"slug": slug, "title": slug, "ends_on": None, "state": state, "reason": None}
+
+
+def request_row(conn: psycopg.Connection[Any], username: str) -> tuple[str, list[dict[str, Any]]]:
+    got = conn.execute(
+        "select status, events from public.add_requests where username = %s", (username,)
+    ).fetchone()
+    assert got is not None
+    return got[0], got[1]
+
+
+def test_half_crawled_event_stays_queued(conn: psycopg.Connection[Any]) -> None:
+    hid = hackathon(conn, "t-add-half")
+    conn.execute(
+        "insert into public.projects (source, source_id, hackathon_id, title)"
+        " values ('devpost', 't-add-hp', %s, 'P')",
+        (hid,),
+    )
+    crawling(conn, "t-add-bob", [ev("t-add-half", "queued")])
+    assert finish(conn) == (0, 0)
+    status, events = request_row(conn, "t-add-bob")
+    assert (status, events[0]["state"]) == ("crawling", "queued")
+
+
+def test_finished_empty_event_loads_and_request_gets_nothing_counts(conn: psycopg.Connection[Any]) -> None:
+    hid = hackathon(conn, "t-add-empty")
+    set_checkpoint(conn, f"event:{hid}", {"done": True})
+    crawling(conn, "t-add-cy", [ev("t-add-empty", "queued")])
+    assert finish(conn) == (0, 1)
+    status, events = request_row(conn, "t-add-cy")
+    assert (status, events[0]["state"]) == ("nothing_counts", "loaded")
+
+
+def test_mark_loaded_keeps_order_and_other_states(conn: psycopg.Connection[Any]) -> None:
+    hid = hackathon(conn, "t-add-ord")
+    set_checkpoint(conn, f"event:{hid}", {"done": True})
+    crawling(conn, "t-add-dee", [ev("a", "doesnt_count"), ev("t-add-ord", "queued"), ev("z", "backlog")])
+    mark_loaded(conn)
+    _, events = request_row(conn, "t-add-dee")
+    assert [(e["slug"], e["state"]) for e in events] == [
+        ("a", "doesnt_count"),
+        ("t-add-ord", "loaded"),
+        ("z", "backlog"),
+    ]

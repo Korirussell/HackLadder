@@ -149,16 +149,27 @@ def _set(
 
 
 def lookup(conn: Connection, getter: Getter, request_id: int, username: str) -> str:
-    """Work out one request's events; returns its new status."""
+    """Work out one request's events; returns its new status. Any failure after the request is
+    marked looking_up leaves it `failed` (never stuck), and unexpected errors are re-raised."""
+    if not USERNAME.fullmatch(username):
+        raise ValueError(f"not a Devpost username: {username!r}")
     _set(conn, request_id, "looking_up")
     try:
-        projects = portfolio_projects(getter, username)
-        if projects is None:
-            return _set(conn, request_id, "not_found")
-        events = submitted_events(getter, projects)
+        return _lookup(conn, getter, request_id, username)
     except (FetchFailedError, ParseError):
         conn.rollback()
         return _set(conn, request_id, "failed", failed=True)
+    except Exception:
+        conn.rollback()
+        _set(conn, request_id, "failed", failed=True)
+        raise
+
+
+def _lookup(conn: Connection, getter: Getter, request_id: int, username: str) -> str:
+    projects = portfolio_projects(getter, username)
+    if projects is None:
+        return _set(conn, request_id, "not_found")
+    events = submitted_events(getter, projects)
 
     rows = {r[0]: ScopeRow(*r) for r in conn.execute(_SCOPE, (list(events),)).fetchall()}
     states: list[EventState] = []

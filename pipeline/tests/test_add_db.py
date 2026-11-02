@@ -12,7 +12,7 @@ import pytest
 from conftest import read_fixture
 
 from hackladder.add import lookup, pending_lookups
-from hackladder.crawl.http import FetchResult
+from hackladder.crawl.http import FetchFailedError, FetchResult
 
 pytestmark = [
     pytest.mark.db,
@@ -29,6 +29,12 @@ def conn() -> Iterator[psycopg.Connection[Any]]:
         c.rollback()
         c.execute("delete from public.add_requests where username like 't-add-%'")
         c.execute("delete from public.hackathons where slug like 't-add-%'")
+        c.execute(
+            "delete from public.ratings where person_id in"
+            " (select id from public.people where slug like 't-add-%')"
+        )
+        c.execute("delete from public.accounts where source_id like 't-add-%'")
+        c.execute("delete from public.people where slug like 't-add-%'")
         c.commit()
 
 
@@ -131,3 +137,108 @@ def test_pending_lookups_takes_the_latest_for_a_username(conn: psycopg.Connectio
         conn.execute("select max(id) from public.add_requests where username = 't-add-zed'").fetchone()
     )
     assert pending_lookups(conn, "T-ADD-ZED") == [(latest, "t-add-zed")]
+
+
+def request(conn: psycopg.Connection[Any], username: str) -> int:
+    rid = one(
+        conn.execute(
+            "insert into public.add_requests (username) values (%s) returning id", (username,)
+        ).fetchone()
+    )
+    conn.commit()
+    return int(rid)
+
+
+def state_of(conn: psycopg.Connection[Any], rid: int) -> tuple[str, int, str | None, list[dict[str, Any]]]:
+    row = conn.execute(
+        "select status, attempts, person_slug, events from public.add_requests where id = %s", (rid,)
+    ).fetchone()
+    assert row is not None
+    return row[0], row[1], row[2], row[3]
+
+
+def rated_person(conn: psycopg.Connection[Any], username: str) -> None:
+    pid = one(
+        conn.execute(
+            "insert into public.people (slug, display_name) values (%s, 'T Add') returning id",
+            (username,),
+        ).fetchone()
+    )
+    conn.execute(
+        "insert into public.accounts (source_id, display_name, person_id) values (%s, 'T Add', %s)",
+        (username, pid),
+    )
+    conn.execute(
+        "insert into public.ratings (person_id, mu, sigma, score, events, placements, grand_prizes,"
+        " provisional) values (%s, 25, 8, 1000, 1, 0, 0, true)",
+        (pid,),
+    )
+    conn.commit()
+
+
+def test_lookup_caps_queued_events_at_twenty(conn: psycopg.Connection[Any]) -> None:
+    slugs = [f"t-add-cap{i:02d}" for i in range(21)]
+    for slug in slugs:
+        hackathon(conn, slug)
+    conn.commit()
+    rid = request(conn, "t-add-capper")
+    pages = Pages(
+        {
+            "https://devpost.com/t-add-capper": PORTFOLIO,
+            "https://devpost.com/software/scratchml": project_page(*slugs),
+        }
+    )
+    assert lookup(conn, pages, rid, "t-add-capper") == "crawling"
+    events = state_of(conn, rid)[3]
+    states = [e["state"] for e in events]
+    assert states.count("queued") == 20
+    assert states.count("backlog") == 1
+
+
+def test_lookup_failure_is_recorded(conn: psycopg.Connection[Any]) -> None:
+    class Down:
+        def get(self, url: str, max_age: timedelta | None = None) -> FetchResult:
+            raise FetchFailedError(url, 503, "HTTP 503", 1)
+
+    rid = request(conn, "t-add-down")
+    assert lookup(conn, Down(), rid, "t-add-down") == "failed"
+    assert state_of(conn, rid)[:2] == ("failed", 1)
+
+
+def test_lookup_of_a_rated_user_with_nothing_new(conn: psycopg.Connection[Any]) -> None:
+    pid = hackathon(conn, "t-add-done")
+    conn.execute(
+        "insert into public.projects (source_id, hackathon_id, title) values ('t-add-p', %s, 'P')", (pid,)
+    )
+    rated_person(conn, "t-add-known")
+    rid = request(conn, "t-add-known")
+    pages = Pages(
+        {
+            "https://devpost.com/t-add-known": PORTFOLIO,
+            "https://devpost.com/software/scratchml": project_page("t-add-done"),
+        }
+    )
+    assert lookup(conn, pages, rid, "t-add-known") == "already_here"
+    status, _, person_slug, events = state_of(conn, rid)
+    assert (status, person_slug) == ("already_here", "t-add-known")
+    assert [e["state"] for e in events] == ["rated"]
+
+
+def test_lookup_where_nothing_counts(conn: psycopg.Connection[Any]) -> None:
+    hackathon(conn, "t-add-jam", is_online=True)
+    rid = request(conn, "t-add-nobody")
+    pages = Pages(
+        {
+            "https://devpost.com/t-add-nobody": PORTFOLIO,
+            "https://devpost.com/software/scratchml": project_page("t-add-jam"),
+        }
+    )
+    assert lookup(conn, pages, rid, "t-add-nobody") == "nothing_counts"
+    assert state_of(conn, rid)[2] is None
+
+
+def test_lookup_rejects_a_bad_username(conn: psycopg.Connection[Any]) -> None:
+    rid = request(conn, "t-add-bad")
+    with pytest.raises(ValueError, match="username"):
+        lookup(conn, Pages({}), rid, "../software")
+    assert state_of(conn, rid)[0] == "queued"

@@ -11,7 +11,7 @@ import psycopg
 import pytest
 from conftest import read_fixture
 
-from hackladder.add import lookup, pending_lookups
+from hackladder.add import finish, lookup, pending_lookups, queued_slugs
 from hackladder.crawl.http import FetchFailedError, FetchResult
 
 pytestmark = [
@@ -242,3 +242,49 @@ def test_lookup_rejects_a_bad_username(conn: psycopg.Connection[Any]) -> None:
     with pytest.raises(ValueError, match="username"):
         lookup(conn, Pages({}), rid, "../software")
     assert state_of(conn, rid)[0] == "queued"
+
+
+def test_finish_marks_loaded_events_and_goes_live(conn: psycopg.Connection[Any]) -> None:
+    hid = hackathon(conn, "t-add-done")
+    conn.execute(
+        "insert into public.add_requests (username, status, events) values ('t-add-amy', 'crawling', %s)",
+        ('[{"slug": "t-add-done", "title": "Done", "ends_on": null, "state": "queued", "reason": null}]',),
+    )
+    conn.commit()
+    assert "t-add-done" in queued_slugs(conn)
+    # The crawl loads a project and the rating run rates its member.
+    pid = one(
+        conn.execute(
+            "insert into public.people (slug, display_name) values ('t-add-amy', 'Amy') returning id"
+        ).fetchone()
+    )
+    acc = one(
+        conn.execute(
+            "insert into public.accounts (source, source_id, display_name, person_id)"
+            " values ('devpost', 't-add-amy', 'Amy', %s) returning id",
+            (pid,),
+        ).fetchone()
+    )
+    prj = one(
+        conn.execute(
+            "insert into public.projects (source, source_id, hackathon_id, title)"
+            " values ('devpost', 't-add-p', %s, 'P') returning id",
+            (hid,),
+        ).fetchone()
+    )
+    conn.execute("insert into public.project_members (project_id, account_id) values (%s, %s)", (prj, acc))
+    conn.execute(
+        "insert into public.ratings (person_id, mu, sigma, score, events, placements, grand_prizes,"
+        " last_event_on, percentile, provisional)"
+        " values (%s, 25, 8, 1000, 1, 0, 0, current_date, null, true)",
+        (pid,),
+    )
+    conn.commit()
+    assert finish(conn) == (1, 0)
+    got = conn.execute(
+        "select status, person_slug, events from public.add_requests where username = 't-add-amy'"
+    ).fetchone()
+    assert got is not None
+    status, slug, events = got
+    assert (status, slug, events[0]["state"]) == ("live", "t-add-amy", "loaded")
+    assert "t-add-done" not in queued_slugs(conn)

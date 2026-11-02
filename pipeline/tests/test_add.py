@@ -8,6 +8,7 @@ import pytest
 from conftest import read_fixture
 
 from hackladder.add import ScopeRow, classify, portfolio_projects
+from hackladder.crawl.events import prioritize
 from hackladder.crawl.http import FetchResult
 
 
@@ -72,3 +73,13 @@ def test_a_devpost_page_that_isnt_a_user_is_none() -> None:
     # devpost.com/software exists but is the global project gallery, not a portfolio
     gallery = "<html><body><div class='gallery-item'></div></body></html>"
     assert portfolio_projects(Pages({"https://devpost.com/software": gallery}), "software") is None
+
+
+def test_prioritize_puts_requested_events_first_and_rechecks() -> None:
+    rows = [(i, f"e{i}", None) for i in range(25)]
+    asks = iter([["e20"], ["e24"], []])
+    out = [r[1] for r in prioritize(rows, lambda: next(asks, []), every=10)]
+    assert out[0] == "e20"  # asked before the run
+    assert out.index("e24") == 11  # asked during it: picked up at the next check (after 10 more)
+    assert sorted(out) == sorted(r[1] for r in rows)  # each once
+    assert len(out) == 25

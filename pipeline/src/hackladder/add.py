@@ -209,3 +209,52 @@ def pending_lookups(conn: Connection, username: str | None) -> list[tuple[int, s
             (MAX_PENDING,),
         ).fetchall()
     return [(int(r[0]), str(r[1])) for r in rows]
+
+
+def queued_slugs(conn: Connection) -> list[str]:
+    """Events waiting on an open request: `hl add crawl` and the daily backfill crawl these first."""
+    rows = conn.execute(
+        "select distinct e ->> 'slug' from public.add_requests r"
+        " cross join lateral jsonb_array_elements(r.events) e"
+        " where r.status = 'crawling' and e ->> 'state' = 'queued'"
+    ).fetchall()
+    return sorted(str(r[0]) for r in rows)
+
+
+def mark_loaded(conn: Connection) -> None:
+    """Queued events that now have projects become loaded."""
+    conn.execute(
+        """
+        update public.add_requests r set updated_at = now(), events = coalesce((
+          select jsonb_agg(case when e ->> 'state' = 'queued' and exists (
+                   select 1 from public.projects p join public.hackathons h on h.id = p.hackathon_id
+                   where h.slug = e ->> 'slug')
+                 then jsonb_set(e, '{state}', '"loaded"') else e end order by x.ord)
+          from jsonb_array_elements(r.events) with ordinality x (e, ord)), '[]'::jsonb)
+        where r.status = 'crawling'
+        """
+    )
+    conn.commit()
+
+
+def finish(conn: Connection) -> tuple[int, int]:
+    """After a rating run: requests with nothing left queued go live (their person is rated) or,
+    if the crawl found them on none of those events, nothing_counts. Returns (live, nothing)."""
+    mark_loaded(conn)
+    open_done = (
+        "r.status = 'crawling' and not exists"
+        " (select 1 from jsonb_array_elements(r.events) e where e ->> 'state' = 'queued')"
+    )
+    live = conn.execute(
+        "update public.add_requests r set status = 'live', person_slug = p.slug, updated_at = now()"
+        " from public.accounts a join public.people p on p.id = a.person_id"
+        " join public.ratings rt on rt.person_id = p.id"
+        f" where {open_done} and a.source = 'devpost' and lower(a.source_id) = lower(r.username)"
+        " returning r.id"
+    ).fetchall()
+    nothing = conn.execute(
+        f"update public.add_requests r set status = 'nothing_counts', updated_at = now() where {open_done}"
+        " returning r.id"
+    ).fetchall()
+    conn.commit()
+    return len(live), len(nothing)

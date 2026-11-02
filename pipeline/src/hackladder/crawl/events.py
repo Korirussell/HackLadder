@@ -7,11 +7,13 @@ and edits may still change (§6.2). Each project page is fetched once and cached
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Protocol
 
+from hackladder.add import queued_slugs
 from hackladder.crawl.http import FetchFailedError, FetchResult
 from hackladder.db import Connection, get_checkpoint, record_failure, record_raw_page, set_checkpoint
 from hackladder.load.projects import load_project
@@ -19,6 +21,7 @@ from hackladder.parse import ParseError, parse_gallery, parse_project
 from hackladder.prizes import TierConfig
 
 SETTLE_DAYS = 60
+REQUEST_CHECK_EVERY = 10  # events between looks for newly requested ones
 RECENT_MAX_AGE = timedelta(days=7)  # how stale a recent event's cached pages may be
 MAX_GALLERY_PAGES = 200
 
@@ -52,6 +55,26 @@ def _events(conn: Connection, slugs: list[str] | None) -> list[tuple[int, str, d
     return [(int(r[0]), str(r[1]), r[2]) for r in rows]
 
 
+def prioritize(
+    rows: Sequence[tuple[int, str, date | None]],
+    requested: Callable[[], list[str]],
+    every: int = REQUEST_CHECK_EVERY,
+) -> Iterator[tuple[int, str, date | None]]:
+    """The backfill's order: events someone asked for (add-me requests) first, re-checked every
+    ``every`` events so a request made mid-run is crawled within minutes, then newest first."""
+    by_slug = {r[1]: r for r in rows}
+    seen: set[str] = set()
+    for i, row in enumerate(rows):
+        if i % every == 0:
+            for slug in requested():
+                if slug in by_slug and slug not in seen:
+                    seen.add(slug)
+                    yield by_slug[slug]
+        if row[1] not in seen:
+            seen.add(row[1])
+            yield row
+
+
 def crawl_events(
     fetcher: Fetcher,
     conn: Connection,
@@ -63,7 +86,9 @@ def crawl_events(
 ) -> EventCrawlResult:
     today = today or date.today()
     result = EventCrawlResult()
-    for hackathon_id, slug, ends_on in _events(conn, slugs):
+    rows = _events(conn, slugs)
+    ordered = rows if slugs else prioritize(rows, lambda: queued_slugs(conn))
+    for hackathon_id, slug, ends_on in ordered:
         if limit is not None and result.events >= limit:
             break
         recent = ends_on is None or (today - ends_on).days < SETTLE_DAYS

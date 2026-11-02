@@ -57,3 +57,7 @@ jobs:
           if [ -n "$REVALIDATE_SECRET" ]; then
             curl -fsS -X POST https://www.hackladder.com/api/revalidate -H "Authorization: Bearer $REVALIDATE_SECRET"
           fi
+      # Add-me requests whose events this run crawled (requested events go first) go live, since
+      # add-hacker.yml skips its own crawl while this run is active or pending.
+      - name: Finish add-me requests
+        run: uv run hl add finish

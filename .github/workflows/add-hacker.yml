@@ -18,12 +18,30 @@ jobs:
   lookup:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # One lookup at a time, so there's only ever one Devpost client per lookup (§6.2). It looks up
+    # every waiting request, so a pending lookup that GitHub cancels in favour of a newer one loses
+    # nothing.
+    concurrency:
+      group: add-lookup
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read  # to see other pipeline runs (the busy check)
     defaults:
       run:
         working-directory: pipeline
     outputs:
       queued: ${{ steps.lookup.outputs.queued }}
+      busy: ${{ steps.busy.outputs.busy }}
     steps:
+      # Checked before anything else: the input comes from a dispatch, not from this repo. The
+      # lookup itself reads every waiting request from the database, not this input.
+      - name: Check the username
+        env:
+          USERNAME: ${{ inputs.username }}
+        working-directory: .
+        run: |
+          [[ "$USERNAME" =~ ^[A-Za-z0-9_-]{1,40}$ ]] || { echo "not a Devpost username"; exit 1; }
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
@@ -34,15 +52,39 @@ jobs:
         id: lookup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          USERNAME: ${{ inputs.username }}
-        # Checked before use: the input comes from a dispatch, not from this repo.
+        run: uv run hl add lookup
+      # GitHub keeps one pending run per concurrency group, across workflows, and cancels the older
+      # one. Queuing this crawl into `pipeline-db` could cancel a pending scheduled crawl or rating
+      # run (or an admin's MLH crawl). So if any other pipeline run is active or pending, skip the
+      # crawl: crawl-events.yml and crawl-weekly.yml crawl requested events first, and every one of
+      # those workflows runs `hl add finish`; the daily backfill serves the rest. A newer add-hacker
+      # run crawls for us (older ones are ours to replace: `hl add crawl` serves every request). If
+      # the check itself fails, skip too.
+      - name: Check for other pipeline runs
+        id: busy
+        if: steps.lookup.outputs.queued == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          [[ "$USERNAME" =~ ^[A-Za-z0-9_-]{1,40}$ ]] || { echo "not a Devpost username: $USERNAME"; exit 1; }
-          uv run hl add lookup --username "$USERNAME"
+          busy=true
+          if active=$(
+            for wf in crawl-events.yml crawl-weekly.yml rate-nightly.yml add-hacker.yml; do
+              newer=""
+              [ "$wf" = add-hacker.yml ] && newer=" and .databaseId > $GITHUB_RUN_ID"
+              gh run list --repo "$GITHUB_REPOSITORY" --workflow "$wf" --limit 50 \
+                --json databaseId,status --jq ".[] | select(.status != \"completed\"$newer) | .databaseId" \
+                || exit 1
+            done
+          ); then
+            if [ -z "$active" ]; then busy=false; else echo "other pipeline runs active: $(echo $active)"; fi
+          else
+            echo "couldn't list runs; skipping the crawl (the daily backfill serves the request)"
+          fi
+          echo "busy=$busy" >> "$GITHUB_OUTPUT"
 
   crawl:
     needs: lookup
-    if: needs.lookup.outputs.queued == 'true'
+    if: needs.lookup.outputs.queued == 'true' && needs.lookup.outputs.busy != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     concurrency:
@@ -63,7 +105,10 @@ jobs:
           path: pipeline/.cache/raw
           key: raw-pages-${{ github.run_id }}
           restore-keys: raw-pages-
+      # Stops in time to rate what it loaded; each event is marked loaded as it finishes.
       - name: Crawl waiting events
+        timeout-minutes: 90
+        continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run hl add crawl

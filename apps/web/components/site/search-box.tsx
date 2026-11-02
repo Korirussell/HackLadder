@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { addHref } from "@/lib/add";
 import { GROUP_LABEL, groupHits, hitDetail, hitHref, normalizeQuery, type SearchHit } from "@/lib/search";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -11,9 +13,18 @@ type Status = "idle" | "loading" | "done" | "error";
  * search.app (§4.4): an instant dropdown, 150ms debounce, top 8 grouped as hackers, schools and
  * events. ⌘K / Ctrl+K focuses it from anywhere. Without JS the form still submits to /search.
  */
-export function SearchBox({ placeholder = "Your name or Devpost username", autoFocus = false }: { placeholder?: string; autoFocus?: boolean }) {
+export function SearchBox({
+  placeholder = "Your name or Devpost username",
+  autoFocus = false,
+  large = false,
+}: {
+  placeholder?: string;
+  autoFocus?: boolean | "desktop"; // "desktop": not on phones, where it would pop the keyboard
+  large?: boolean;
+}) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   const listId = useId();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -32,6 +43,10 @@ export function SearchBox({ placeholder = "Your name or Devpost username", autoF
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    if (autoFocus === "desktop" && matchMedia("(min-width: 981px)").matches) input.current?.focus();
+  }, [autoFocus]);
 
   useEffect(() => {
     const query = normalizeQuery(q);
@@ -77,19 +92,23 @@ export function SearchBox({ placeholder = "Your name or Devpost username", autoF
         else if (normalizeQuery(q)) router.push(`/search?q=${encodeURIComponent(q.trim())}`);
       }}
     >
-      <label className="flex flex-1 items-center gap-2.5 rounded-[10px] border border-line bg-bg px-3.5 py-3 focus-within:border-select focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--select)_25%,transparent)] max-[980px]:basis-full">
+      <label className={`flex flex-1 items-center gap-2.5 rounded-[10px] border border-line bg-bg px-3.5 ${large ? "py-4 text-[20px]" : "py-3"} focus-within:border-select focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--select)_25%,transparent)] max-[980px]:basis-full`}>
         <span className="sr-only">Search hackers, schools and events</span>
         <input
           ref={input}
           name="q"
           value={q}
-          autoFocus={autoFocus}
+          autoFocus={autoFocus === true}
           onChange={(e) => {
             setQ(e.target.value);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onBlur={(e) => {
+            // Tabbing into the dropdown's link must not close it.
+            if (list.current?.contains(e.relatedTarget as Node | null)) return;
+            setTimeout(() => setOpen(false), 120);
+          }}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") {
               e.preventDefault();
@@ -123,6 +142,7 @@ export function SearchBox({ placeholder = "Your name or Devpost username", autoF
 
       {showList && (
         <div
+          ref={list}
           id={listId}
           role="listbox"
           aria-label="Search results"
@@ -132,7 +152,15 @@ export function SearchBox({ placeholder = "Your name or Devpost username", autoF
           {status === "error" && <p className="px-3.5 py-3">Search didn&apos;t answer. Try again in a moment.</p>}
           {status === "done" && !flat.length && (
             <p className="px-3.5 py-3">
-              No results for &lsquo;{q.trim()}&rsquo;. Try your Devpost username.
+              No results for &lsquo;{q.trim()}&rsquo;.{" "}
+              <Link
+                href={addHref(q)}
+                onMouseDown={(e) => e.preventDefault()}
+                onBlur={() => setOpen(false)}
+                className="font-semibold underline"
+              >
+                Not here yet? Add yourself with your Devpost username
+              </Link>
             </p>
           )}
           {groups.map((g) => (

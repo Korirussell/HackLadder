@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { SearchHoldingWindow } from "@/components/site/search-window";
 import { BarList, LadderTable, PlayerCard } from "@/components/site/boards";
-import { Button, Change, Empty } from "@/components/site/bits";
+import { Button, Empty } from "@/components/site/bits";
 import { SectionHead, Win } from "@/components/os/window";
 import { getCurrentSeason, getEventBoard, getLadder, getSchoolBoard, getSiteStats, PER_PAGE } from "@/lib/data";
 import { num, pages, plural } from "@/lib/format";
@@ -33,45 +33,26 @@ export default async function Home() {
           </div>
         </div>
         <h1 className="display relative z-[1] text-hero max-[980px]:text-[16vw]">
-          Every hacker
+          Where do
           <br />
-          who&apos;s won,
-          <br />
-          ranked.
+          you rank?
         </h1>
-        <div className="mt-10 grid grid-cols-[minmax(0,560px)_minmax(0,1fr)] items-start gap-7 max-[980px]:grid-cols-1">
+        <div className="mt-10 grid max-w-[720px] gap-3">
           <SearchHoldingWindow
+            large
+            autoFocus="desktop"
             meta={`${num(stats.hackers)} indexed`}
             status={[
               top[0] ? `Try: ${top[0].display_name.toLowerCase()}` : "Try your Devpost username",
               `Ratings from ${plural(stats.rated_events, "hackathon")}`,
             ]}
           />
-          <Win title="top_3" meta="live">
-            {top.length ? (
-              <ol>
-                {top.slice(0, 3).map((r) => (
-                  <li key={r.slug} className="grid grid-cols-[44px_1fr_auto] items-center gap-3 border-b border-line px-3.5 py-2.5 last:border-b-0">
-                    <span className="stat text-[28px]">{r.rank}</span>
-                    <span className="min-w-0">
-                      <Link href={`/h/${r.slug}`} className="font-bold tracking-[-0.02em] hover:underline">
-                        {r.display_name}
-                      </Link>
-                      <small className="block truncate text-[12.5px] text-muted">{r.school_name ?? plural(r.events, "event")}</small>
-                    </span>
-                    <span className="sys text-right text-[14px] font-semibold">
-                      {num(r.score)}
-                      <small className="block text-[12.5px]">
-                        <Change value={r.month_change} />
-                      </small>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <Empty>The first ratings publish after the opening crawl. Search for your event in the meantime.</Empty>
-            )}
-          </Win>
+          <p className="sys text-muted">
+            {plural(stats.hackers, "hacker")} ·{" "}
+            <Link href="/add" className="font-semibold text-ink underline">
+              Not here? Add yourself →
+            </Link>
+          </p>
         </div>
         {hardest.length > 0 && (
           <div className="sys mt-[22px] flex flex-wrap gap-x-[22px] gap-y-2 text-muted">

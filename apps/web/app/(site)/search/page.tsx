@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { Empty } from "@/components/site/bits";
+import { Button, Empty } from "@/components/site/bits";
 import { LoadingWin } from "@/components/site/loading";
 import { SearchHoldingWindow } from "@/components/site/search-window";
 import { SectionHead, Win } from "@/components/os/window";
+import { addHref } from "@/lib/add";
 import { searchAll } from "@/lib/data";
 import { GROUP_LABEL, groupHits, hitDetail, hitHref, normalizeQuery } from "@/lib/search";
 
@@ -49,7 +50,9 @@ async function Results({ searchParams }: Pick<PageProps<"/search">, "searchParam
           </div>
         ))
       ) : (
-        <Empty>No results for &lsquo;{q}&rsquo;. Try your Devpost username.</Empty>
+        <Empty action={<Button href={addHref(q)}>Add yourself</Button>}>
+          No results for &lsquo;{q}&rsquo;. If you&apos;ve entered a hackathon on Devpost, add yourself with your Devpost username.
+        </Empty>
       )}
     </Win>
   );

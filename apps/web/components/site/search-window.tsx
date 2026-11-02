@@ -8,14 +8,16 @@ export function SearchHoldingWindow({
   meta,
   status,
   autoFocus,
+  large,
 }: {
   meta?: ReactNode;
   status?: [ReactNode, ReactNode?];
-  autoFocus?: boolean;
+  autoFocus?: boolean | "desktop";
+  large?: boolean;
 }) {
   return (
     <Win title="search.app" meta={meta} status={status} clip={false}>
-      <SearchBox autoFocus={autoFocus} />
+      <SearchBox autoFocus={autoFocus} large={large} />
     </Win>
   );
 }

@@ -83,7 +83,10 @@ def crawl_events(
     slugs: list[str] | None = None,
     limit: int | None = None,
     today: date | None = None,
+    after_event: Callable[[], None] | None = None,
 ) -> EventCrawlResult:
+    """Crawl in-scope events (or just ``slugs``, ignoring checkpoints). ``after_event`` runs after
+    each event's checkpoint is committed (``hl add crawl`` marks add-me events loaded there)."""
     today = today or date.today()
     result = EventCrawlResult()
     rows = _events(conn, slugs)
@@ -134,4 +137,6 @@ def crawl_events(
         conn.commit()
         result.events += 1
         result.projects += loaded
+        if after_event is not None:
+            after_event()
     return result

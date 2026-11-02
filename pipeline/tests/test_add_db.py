@@ -212,10 +212,8 @@ def test_lookup_failure_is_recorded(conn: psycopg.Connection[Any]) -> None:
 
 
 def test_lookup_of_a_rated_user_with_nothing_new(conn: psycopg.Connection[Any]) -> None:
-    pid = hackathon(conn, "t-add-done")
-    conn.execute(
-        "insert into public.projects (source_id, hackathon_id, title) values ('t-add-p', %s, 'P')", (pid,)
-    )
+    hid = hackathon(conn, "t-add-done")
+    set_checkpoint(conn, f"event:{hid}", {"done": True})
     rated_person(conn, "t-add-known")
     rid = request(conn, "t-add-known")
     pages = Pages(
@@ -228,6 +226,40 @@ def test_lookup_of_a_rated_user_with_nothing_new(conn: psycopg.Connection[Any]) 
     status, _, person_slug, events = state_of(conn, rid)
     assert (status, person_slug) == ("already_here", "t-add-known")
     assert [e["state"] for e in events] == ["rated"]
+
+
+def test_lookup_queues_an_event_with_projects_but_no_checkpoint(conn: psycopg.Connection[Any]) -> None:
+    # Loaded means crawled to the end (the mark_loaded rule), not "has some projects".
+    hid = hackathon(conn, "t-add-partial")
+    conn.execute(
+        "insert into public.projects (source_id, hackathon_id, title) values ('t-add-pp', %s, 'P')", (hid,)
+    )
+    rid = request(conn, "t-add-part")
+    pages = Pages(
+        {
+            "https://devpost.com/t-add-part": PORTFOLIO,
+            "https://devpost.com/software/scratchml": project_page("t-add-partial"),
+        }
+    )
+    assert lookup(conn, pages, rid, "t-add-part") == "crawling"
+    assert [e["state"] for e in state_of(conn, rid)[3]] == ["queued"]
+
+
+def test_pending_lookups_retries_a_stuck_lookup(conn: psycopg.Connection[Any]) -> None:
+    stuck = request(conn, "t-add-stuck")
+    fresh = request(conn, "t-add-busy")
+    conn.execute(
+        "update public.add_requests set status = 'looking_up', updated_at = now() - interval '31 minutes'"
+        " where id = %s",
+        (stuck,),
+    )
+    conn.execute("update public.add_requests set status = 'looking_up' where id = %s", (fresh,))
+    conn.commit()
+    waiting = pending_lookups(conn, None)
+    assert (stuck, "t-add-stuck") in waiting
+    assert all(i != fresh for i, _ in waiting)  # still being looked up by a live runner
+    assert pending_lookups(conn, "t-add-stuck") == [(stuck, "t-add-stuck")]
+    assert pending_lookups(conn, "t-add-busy") == []
 
 
 def test_lookup_where_nothing_counts(conn: psycopg.Connection[Any]) -> None:
@@ -350,3 +382,36 @@ def test_mark_loaded_keeps_order_and_other_states(conn: psycopg.Connection[Any])
         ("t-add-ord", "loaded"),
         ("z", "backlog"),
     ]
+
+
+def test_finish_never_reveals_a_hidden_person(conn: psycopg.Connection[Any]) -> None:
+    hid = hackathon(conn, "t-add-hid")
+    set_checkpoint(conn, f"event:{hid}", {"done": True})
+    rated_person(conn, "t-add-gone")
+    conn.execute("update public.people set hidden = true where slug = 't-add-gone'")
+    conn.commit()
+    crawling(conn, "t-add-gone", [ev("t-add-hid", "queued")])
+    assert finish(conn) == (0, 1)
+    got = conn.execute(
+        "select status, person_slug from public.add_requests where username = 't-add-gone'"
+    ).fetchone()
+    assert got == ("nothing_counts", None)
+
+
+def test_finish_gives_up_on_events_queued_for_two_days(conn: psycopg.Connection[Any]) -> None:
+    hackathon(conn, "t-add-broken")  # its gallery never loads: no checkpoint
+    done = hackathon(conn, "t-add-fine")
+    set_checkpoint(conn, f"event:{done}", {"done": True})
+    rated_person(conn, "t-add-old")
+    crawling(conn, "t-add-old", [ev("t-add-broken", "queued"), ev("t-add-fine", "queued")])
+    crawling(conn, "t-add-new", [ev("t-add-broken", "queued")])
+    conn.execute(
+        "update public.add_requests set created_at = now() - interval '49 hours' where username = 't-add-old'"
+    )
+    conn.commit()
+    assert finish(conn) == (1, 0)
+    status, events = request_row(conn, "t-add-old")
+    assert (status, [e["state"] for e in events]) == ("live", ["backlog", "loaded"])
+    status, events = request_row(conn, "t-add-new")  # under 48 hours: still waiting
+    assert (status, events[0]["state"]) == ("crawling", "queued")
+    assert "t-add-broken" in queued_slugs(conn)

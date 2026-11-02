@@ -27,6 +27,8 @@ MAX_PROJECTS = 30
 MAX_QUEUED = 20
 MAX_PENDING = 50  # requests one `hl add lookup` without --username works through
 PORTFOLIO_MAX_AGE = timedelta(hours=6)  # new projects show up; a cached copy is fine for this long
+STUCK_LOOKUP = timedelta(minutes=30)  # a looking_up row this old lost its runner; look it up again
+CRAWL_GIVE_UP = timedelta(hours=48)  # queued events still not crawled this long after a request: backlog
 
 
 class Getter(Protocol):
@@ -43,7 +45,7 @@ class ScopeRow:
     is_high_school: bool
     winners_announced: bool
     is_rated: bool
-    loaded: bool  # has projects in the database
+    loaded: bool  # crawled: its `event:<id>` checkpoint exists (the same rule as mark_loaded)
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +117,7 @@ def submitted_events(getter: Getter, project_slugs: list[str]) -> dict[str, str]
 
 _SCOPE = """
 select h.slug, h.title, h.ends_on::text, h.is_online, h.is_mlh, h.is_high_school, h.winners_announced,
-       s.is_rated, exists (select 1 from public.projects p where p.hackathon_id = h.id)
+       s.is_rated, exists (select 1 from public.crawl_checkpoints c where c.job = 'event:' || h.id)
 from public.hackathons h
 join public.hackathon_scope s on s.hackathon_id = h.id
 where h.slug = any(%s)
@@ -194,19 +196,20 @@ def _lookup(conn: Connection, getter: Getter, request_id: int, username: str) ->
 
 
 def pending_lookups(conn: Connection, username: str | None) -> list[tuple[int, str]]:
-    """Requests waiting for a lookup: that username's latest, or the oldest MAX_PENDING."""
+    """Requests waiting for a lookup: that username's latest, or the oldest MAX_PENDING. A request
+    left `looking_up` for STUCK_LOOKUP lost its runner (killed mid-lookup), so it waits again."""
+    waiting = "(status = 'queued' or (status = 'looking_up' and updated_at < now() - %s))"
     if username is not None:
         rows = conn.execute(
             "select id, username from public.add_requests"
-            " where lower(username) = lower(%s) and status = 'queued'"
+            f" where lower(username) = lower(%s) and {waiting}"
             " order by created_at desc, id desc limit 1",
-            (username,),
+            (username, STUCK_LOOKUP),
         ).fetchall()
     else:
         rows = conn.execute(
-            "select id, username from public.add_requests"
-            " where status = 'queued' order by created_at limit %s",
-            (MAX_PENDING,),
+            f"select id, username from public.add_requests where {waiting} order by created_at limit %s",
+            (STUCK_LOOKUP, MAX_PENDING),
         ).fetchall()
     return [(int(r[0]), str(r[1])) for r in rows]
 
@@ -245,10 +248,30 @@ def mark_loaded(conn: Connection) -> None:
     conn.commit()
 
 
+def give_up_stale(conn: Connection) -> None:
+    """Queued events of requests crawling for more than CRAWL_GIVE_UP become backlog. An event whose
+    gallery fails every time never gets a checkpoint; without this its request would wait forever
+    and every crawl would retry it first. The daily backfill still gets to it in its turn."""
+    conn.execute(
+        """
+        update public.add_requests r set updated_at = now(), events = (
+          select jsonb_agg(case when e ->> 'state' = 'queued'
+                 then jsonb_set(e, '{state}', '"backlog"') else e end order by x.ord)
+          from jsonb_array_elements(r.events) with ordinality x (e, ord))
+        where r.status = 'crawling' and r.created_at < now() - %s and exists (
+          select 1 from jsonb_array_elements(r.events) e where e ->> 'state' = 'queued')
+        """,
+        (CRAWL_GIVE_UP,),
+    )
+    conn.commit()
+
+
 def finish(conn: Connection) -> tuple[int, int]:
-    """After a rating run: requests with nothing left queued go live (their person is rated) or,
-    if the crawl found them on none of those events, nothing_counts. Returns (live, nothing)."""
+    """After a rating run: requests with nothing left queued go live (their person is rated and
+    not hidden) or, if the crawl found them on none of those events, nothing_counts. Requests
+    crawling for over CRAWL_GIVE_UP stop waiting first (give_up_stale). Returns (live, nothing)."""
     mark_loaded(conn)
+    give_up_stale(conn)
     open_done = (
         "r.status = 'crawling' and not exists"
         " (select 1 from jsonb_array_elements(r.events) e where e ->> 'state' = 'queued')"
@@ -258,6 +281,7 @@ def finish(conn: Connection) -> tuple[int, int]:
         " from public.accounts a join public.people p on p.id = a.person_id"
         " join public.ratings rt on rt.person_id = p.id"
         f" where {open_done} and a.source = 'devpost' and lower(a.source_id) = lower(r.username)"
+        " and not p.hidden"  # removed ("remove me") people are never revealed
         " returning r.id"
     ).fetchall()
     nothing = conn.execute(

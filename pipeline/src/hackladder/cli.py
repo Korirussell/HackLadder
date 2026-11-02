@@ -361,8 +361,13 @@ def add_lookup_command(
 
 @add_app.command("crawl")
 def add_crawl_command(cache_dir: CacheDir = DEFAULT_CACHE) -> None:
-    """Crawl every event an open request is waiting on (a cancelled run's requests are served by the next)."""
+    """Crawl every event an open request is waiting on (a cancelled run's requests are served by the next).
+
+    Events already crawled (checkpointed) are marked loaded first and not recrawled: slug mode in
+    crawl_events ignores checkpoints. Each event is marked loaded as soon as it finishes, so a run
+    stopped by its timeout keeps what it did."""
     with _connect() as conn, PoliteClient() as client:
+        add.mark_loaded(conn)
         slugs = add.queued_slugs(conn)
         if not slugs:
             typer.echo("No events waiting.")
@@ -371,11 +376,12 @@ def add_crawl_command(cache_dir: CacheDir = DEFAULT_CACHE) -> None:
         tiers = load_rating_config(conn).prize_tiers
         with db.pipeline_run(conn, "add crawl") as stats:
             fetcher = CachedFetcher(client, cache_dir)
-            result = crawl_events(fetcher, conn, tiers, slugs=slugs)
+            result = crawl_events(
+                fetcher, conn, tiers, slugs=slugs, after_event=lambda: add.mark_loaded(conn)
+            )
             stats.pages_fetched = client.requests_made
             stats.failures = len(result.failures)
             stats.summary = asdict(result)
-        add.mark_loaded(conn)
     typer.echo(
         f"{result.events} of {len(slugs)} events crawled, {result.projects} projects;"
         f" {len(result.failures)} failed."

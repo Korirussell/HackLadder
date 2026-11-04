@@ -13,6 +13,7 @@ import { getHacker, getLadder } from "@/lib/data";
 import { devpostProject, devpostUser, initials, isoDate, monthYear, num, odds, plural, tierLabel, topPercent } from "@/lib/format";
 import type { HackerEvent, HackerPage } from "@/lib/pages";
 import { arrangeProjects, arrangeTrophies, readLayout } from "@/lib/profile-layout";
+import { toTheme } from "@/lib/theme";
 
 export async function generateStaticParams() {
   const top = await getLadder(1, null, 20);
@@ -53,10 +54,11 @@ async function Profile({ params }: Pick<PageProps<"/h/[slug]">, "params">) {
   if (!h) notFound();
   const r = h.rating;
   const username = h.usernames[0];
+  const ownerTheme = toTheme(h.profile_theme);
 
   return (
     <>
-      {h.profile_theme && <OwnerTheme theme={h.profile_theme} />}
+      {ownerTheme && <OwnerTheme theme={ownerTheme} />}
       <PageTitle
         avatar={h.is_claimed ? <Avatar name={h.display_name} path={h.avatar_path} size={112} /> : undefined}
         chips={

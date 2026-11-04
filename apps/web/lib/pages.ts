@@ -2,7 +2,6 @@
 // Generated types only say `Json` for these, so they're declared here and read through asPage().
 
 import type { ProfileLayout } from "./profile-layout";
-import type { ThemeId } from "./theme";
 
 export type HackerEvent = {
   slug: string;
@@ -20,7 +19,7 @@ export type HackerPage = {
   slug: string;
   display_name: string;
   is_claimed: boolean;
-  profile_theme: ThemeId | null;
+  profile_theme: string | null; // may be a retired theme: read it with toTheme()
   avatar_path: string | null;
   layout: ProfileLayout;
   bio: string | null;

@@ -1,16 +1,17 @@
 """
-HackLadder mark: a slanted H drawn as a two-rung ladder; the top rung is signal orange.
+HackLadder mark: a slanted H drawn as a two-rung ladder; the top rung is signal pink.
 Edit this generator, never the SVGs.   python mark.py
 
 Construction (100-unit grid, before the 12° forward skew around the centre):
   rails   19 wide x 84 tall, x=20 and x=61, corner radius 3
   rungs   24 wide x 12 tall, tucked 1 unit into each rail
-  top rung y=24 (orange), crossbar y=54 (ink). Rails overrun both rungs, which makes it a ladder.
+  top rung y=24 (pink), crossbar y=54 (ink). Rails overrun both rungs, which makes it a ladder.
 """
 import math
 from pathlib import Path
 
-INK, PAPER, SIGNAL = "#17140F", "#F6F3EC", "#FF5B14"
+# The Sakura palette (§15 2026-10-29): deep-purple ink, lavender paper, pink signal.
+INK, PAPER, SIGNAL = "#1B1530", "#ECE8FA", "#FF3D7F"
 SKEW = 12
 
 

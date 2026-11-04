@@ -59,7 +59,7 @@ export async function saveProfileTheme(_prev: FormState, formData: FormData): Pr
     .eq("id", me.id);
   if (error) return { status: "error", message: "The theme wasn't saved. Try again in a minute." };
   refresh(me.slug);
-  return { status: "saved", message: isTheme(theme) ? "Visitors now see your profile and share card in this theme." : "Your profile follows each visitor's theme again." };
+  return { status: "saved", message: isTheme(theme) ? "Visitors now see your profile and share card in this theme." : "Your profile follows each visitor's device again." };
 }
 
 export async function saveSchool(_prev: FormState, formData: FormData): Promise<FormState> {

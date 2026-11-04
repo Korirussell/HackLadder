@@ -3,49 +3,12 @@
 /* =========================================================
    Design tokens. These mirror design/reference.html exactly
    (CLAUDE.md §4.1); tests/tokens.test.ts keeps them in sync.
-   Four themes, switched with data-theme on <html> before first
-   paint (app/layout.tsx). Paper is also the no-JS default.
+   Two themes, Sakura (light) and Midnight (dark), set from the
+   device on <html> before first paint (app/layout.tsx). Sakura is
+   also the no-JS default.
    ========================================================= */
 
 :root,
-[data-theme="paper"] {
-  --bg: #f2eee5;
-  --grid: #dcd5c7;
-  --win: #fffdf8;
-  --chrome: #e9e3d8;
-  --chrome-2: #ddd6c9;
-  --ink: #17140f;
-  --muted: #6f685e;
-  --line: #d6cfc2;
-  --accent: #ff5b14;
-  --accent-ink: #ffffff;
-  --select: #2747ff;
-  --select-ink: #ffffff;
-  --shadow: 0 1px 0 #fff inset, 0 18px 40px -18px rgba(40, 30, 10, 0.35);
-  --rail: #17140f;
-  --rung: #ff5b14;
-  color-scheme: light;
-}
-
-[data-theme="sumi"] {
-  --bg: #171512;
-  --grid: #2a2621;
-  --win: #211e1a;
-  --chrome: #2a2622;
-  --chrome-2: #35302a;
-  --ink: #f2eee5;
-  --muted: #a39b8e;
-  --line: #3a352e;
-  --accent: #ff6a26;
-  --accent-ink: #171512;
-  --select: #6b85ff;
-  --select-ink: #0e0e12;
-  --shadow: 0 0 0 1px #2e2a24, 0 24px 50px -20px rgba(0, 0, 0, 0.6);
-  --rail: #f2eee5;
-  --rung: #ff6a26;
-  color-scheme: dark;
-}
-
 [data-theme="sakura"] {
   --bg: #ece8fa;
   --grid: #d3cbf0;

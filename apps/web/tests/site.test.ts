@@ -8,23 +8,29 @@ import { claimResultMessage, friendlyError, parseUsername, removalResultMessage 
 import { cleanBio, cleanUrl } from "@/lib/profile";
 import { groupHits, hitDetail, hitHref, normalizeQuery, type SearchHit } from "@/lib/search";
 import { seasonOf } from "@/lib/season";
-import { HEAD_SCRIPT, isTheme, THEMES, viewerTheme } from "@/lib/theme";
+import { HEAD_SCRIPT, isTheme, THEMES, toTheme, viewerTheme } from "@/lib/theme";
 import { warpPaths } from "@/lib/warp";
 
 describe("themes (§4.7)", () => {
-  it("follows the device until the viewer picks one", () => {
-    expect(viewerTheme(null, false)).toBe("paper");
-    expect(viewerTheme(null, true)).toBe("sumi");
-    expect(viewerTheme("sakura", false)).toBe("sakura");
-    expect(viewerTheme("neon", true)).toBe("sumi");
+  it("follows the device: Sakura when light, Midnight when dark", () => {
+    expect(viewerTheme(false)).toBe("sakura");
+    expect(viewerTheme(true)).toBe("midnight");
     expect(isTheme("midnight")).toBe(true);
-    expect(isTheme("washi")).toBe(false);
+    expect(isTheme("paper")).toBe(false);
+  });
+
+  it("maps retired owner themes to the shipped one on the same side", () => {
+    expect(toTheme("paper")).toBe("sakura");
+    expect(toTheme("sumi")).toBe("midnight");
+    expect(toTheme("midnight")).toBe("midnight");
+    expect(toTheme("washi")).toBeNull();
+    expect(toTheme(null)).toBeNull();
   });
 
   it("sets the theme and boot flag before paint, guarding storage", () => {
     for (const t of THEMES) expect(HEAD_SCRIPT).toContain(`"${t.id}"`);
     expect(HEAD_SCRIPT).toContain("prefers-reduced-motion");
-    expect(HEAD_SCRIPT.match(/try\{/g)?.length).toBe(2);
+    expect(HEAD_SCRIPT.match(/try\{/g)?.length).toBe(1); // sessionStorage; the theme comes from the device
     // It runs as-is in a browser: it must at least parse.
     expect(() => new Function(HEAD_SCRIPT)).not.toThrow();
   });

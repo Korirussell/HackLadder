@@ -15,6 +15,7 @@ from conftest import read_fixture
 from hackladder.config import load_rating_config, seed_prize_rules
 from hackladder.crawl.events import crawl_events
 from hackladder.crawl.http import FetchResult
+from hackladder.rate import run
 from hackladder.rate.run import run_ratings, season_of
 
 pytestmark = [
@@ -119,6 +120,11 @@ def test_crawl_load_rate_publish(conn: psycopg.Connection[Any]) -> None:
     conn.execute("update public.projects set is_winner = not is_winner where source_id = 'palate-pals'")
     conn.commit()
     assert run_ratings(conn, if_changed=True) is not None
+    # New rating code (a RATING_VERSION bump) rebuilds once, though no data or config changed.
+    assert run_ratings(conn, if_changed=True) is None
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(run, "RATING_VERSION", run.RATING_VERSION + 1)
+        assert run_ratings(conn, if_changed=True) is not None
 
 
 def test_reloading_an_unchanged_project_writes_nothing(conn: psycopg.Connection[Any]) -> None:

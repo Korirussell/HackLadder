@@ -25,6 +25,10 @@ from hackladder.rate.model import Event, Team, display, prize_bonus, replay, tea
 
 MIN_SCHOOL_MEMBERS = 5
 SCHOOL_TOP_N = 10
+# Bump whenever the code changes what a rating run publishes (math, display scale, what gets
+# stored), so `hl rate --if-changed` rebuilds once after the deploy instead of skipping because
+# the data and config haven't changed. 2: display scale 200, win-odds noise beta, ratings.rank.
+RATING_VERSION = 2
 
 
 def board_order(rep: Any, hidden: set[Any], *, today: date, inactive_after_months: int) -> list[Any]:
@@ -151,11 +155,12 @@ select concat_ws('|',
 
 
 def input_fingerprint(conn: Connection, config: RatingConfig) -> str:
-    """Changes whenever anything the ratings are built from changes: data or config."""
+    """Changes whenever anything the ratings are built from changes: data, config or the rating
+    code itself (RATING_VERSION)."""
     row = conn.execute(_INPUTS).fetchone()
     assert row is not None
     snapshot = json.dumps(config.snapshot(), sort_keys=True, default=str)
-    return hashlib.sha256(f"{row[0]}#{snapshot}".encode()).hexdigest()
+    return hashlib.sha256(f"v{RATING_VERSION}#{row[0]}#{snapshot}".encode()).hexdigest()
 
 
 def last_fingerprint(conn: Connection) -> str | None:

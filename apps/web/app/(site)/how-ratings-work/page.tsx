@@ -47,8 +47,10 @@ export default async function Method() {
               single lucky win can&apos;t put you at the top, because one result leaves a lot of uncertainty.
             </p>
             <p>
-              You need <b>three rated events</b> to get a rank. Until then you&apos;re provisional. If you haven&apos;t competed in 18
-              months you leave the live ladder, but your rating never decays.
+              You&apos;re <b>ranked from your first rated event</b>. Under three events your profile says how many your rating is
+              based on, since one result is a small sample. Equal ratings never share a rank: ties go to the stronger
+              underlying estimate, then to the more recent event. If you haven&apos;t competed in 18 months you leave the live
+              ladder, but your rating never decays.
             </p>
             <p>
               Ratings count <b>in-person MLH member events</b>, plus events an admin adds by hand. Open online jams don&apos;t count:

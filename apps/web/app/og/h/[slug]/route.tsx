@@ -18,7 +18,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/og/h/[slug]">) {
       file: fileName(h.display_name, "card"),
       meta: h.tier ?? undefined,
       numeral: h.rank ? `#${h.rank}` : undefined,
-      chip: h.rank ? (topPercent(r?.percentile) ?? undefined) : r ? "Provisional" : undefined,
+      chip: h.rank ? (topPercent(r?.percentile) ?? undefined) : r ? "Inactive" : undefined,
       title: h.display_name,
       image: (h.is_claimed && avatarUrl(h.avatar_path)) || undefined,
       lines: [

@@ -33,7 +33,7 @@ async function RankTiers() {
       <section aria-labelledby="tiers-head">
         <h2 id="tiers-head" className="border-b border-ink pb-3 text-[28px] font-bold tracking-[-0.03em]">Rank tiers</h2>
         <p className="mt-3 max-w-[70ch] text-muted">
-          Among non-provisional hackers, highest first. A top-N title (Hall of Fame) beats percentile bands; the last tier
+          Among everyone on the live ladder, highest first. A top-N title (Hall of Fame) beats percentile bands; the last tier
           is everyone else.
         </p>
         <ol>
@@ -73,7 +73,7 @@ async function RankTiers() {
           <ActionForm action={saveSettings} submitLabel="Save settings" className="mt-6 grid max-w-[720px] gap-5">
             <div className="grid gap-5 min-[700px]:grid-cols-3">
               <div>
-                <label className={label} htmlFor="provisional">Events before a hacker is ranked</label>
+                <label className={label} htmlFor="provisional">Events before the &ldquo;based on N events&rdquo; label goes</label>
                 <input id="provisional" name="provisional_min_events" type="number" min={1} defaultValue={settings.provisional_min_events} className={`${input} mt-1`} />
               </div>
               <div>

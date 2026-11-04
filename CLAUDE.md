@@ -182,7 +182,7 @@ Two families, each with one job:
   - `properties` and `frequent_teammates` windows, then the share and correction buttons.
 - **Sticker:** a round accent badge, rotated −12°, used for announcements ("Season 2026"). One per page at most.
 - **Chips:** mono, pill-shaped. Only the most important chip uses the accent.
-- **Provisional:** hackers with fewer than 3 rated events show a "Provisional" chip in place of a rank.
+- **Provisional:** everyone is ranked from their first rated event; hackers with fewer than 3 show a "based on N events" chip next to their rank (2026-11-04).
 - **Rank tier badge:** next to the rating, the hacker's rank tier (§8.7), e.g. "Architect" or "Hall of Fame", as a chip. Text only, no game-style emblems; accent stays rationed.
 - **Empty states** say what to do: "No results for 'kori r'. Try your Devpost username."
 
@@ -456,7 +456,7 @@ Accounts are not people. Some people have two Devpost accounts, and there are ma
 
 ### 7.6 Rating outputs (rebuilt every run)
 
-- `ratings(person_id pk, mu, sigma, score int, events, placements, grand_prizes, last_event_on, percentile, provisional bool)`
+- `ratings(person_id pk, mu, sigma, score int, events, placements, grand_prizes, last_event_on, percentile, provisional bool, rank int /* exact live-board position, null when hidden or inactive at run time */)`
 - `rating_history(person_id, hackathon_id, ends_on, score_before, score_after)`, for the profile chart and the "you moved" emails
 - `hackathon_strength(hackathon_id pk, field_size, field_mean, top_field, elite_count, win_odds, event_rating, judging_corr)`
 - `series_strength(series_id pk, editions, rating, best_hackathon_id)`
@@ -495,7 +495,7 @@ The prototype in `pipeline/prototype/` is validated. Port its logic into `src/ha
 - **Field-size correction:** Plackett-Luce divides every update by c ≈ √(teams), which made a win at an 11-team event worth 3× one at a 150-team event. Each event's change in μ, and its shrink in σ, are scaled by `(teams / 50)^0.75` (`field_scale`, capped at 6), so a bigger field is worth more (§15).
 - **Extra prizes:** each placing prize after a team's best one adds a bonus (tier 1/2: 0.5, tier 3: 0.35, tier 4: 0.25, capped at 1; `prize_bonus`). It breaks ties within the best prize's tier and multiplies the team's μ gain by `1 + bonus × min(1, field_scale)` (§15).
 - Display score: `1000 + 200 × (μ − 3σ)`, so new hackers start at about 1000 and a single lucky win can't top the board.
-- Leaderboard eligibility: at least 3 rated events (the prototype used 2; **use 3**). Below that, the profile is labeled "Provisional".
+- Leaderboard eligibility: **one rated event** (owner's call, 2026-11-04; it was 3). Under 3 events a profile is labelled "based on N events" (`provisional`). Positions are exact: score, then unrounded μ − 3σ, then most recent event, then person id, stored in `ratings.rank` by the rating run.
 
 ### 8.2 Event ranking (`prototype/analyze_events.py`)
 
@@ -549,7 +549,7 @@ The owner tunes the system from the website (`/admin`), not by editing code, bec
 | Event eligibility and event tier | `hackathon_settings` | `counts`: `auto` (in-person MLH member event counts, anything else doesn't), `include` or `exclude`. `event_tier` (S/A/B/C, from `event_tiers`) is a badge and filter only: how much a win is worth always comes from field strength, so tiers can't double-count or be gamed. High-school and `excluded_hackathons` events never count, whatever the setting (§9). |
 | Prize tier rules | `prize_tier_rules` | Ordered rules: first match wins (§6.5). Each has examples that must land in its tier. |
 | Prize overrides | `prize_tier_overrides` | Exact prize name at one hackathon, fixed tier. |
-| Rank tiers | `rank_tiers` | Display bands over non-provisional hackers by percentile, plus a top-N title. Defaults: Legend top 1%, Principal 5%, Architect 15%, Shipper 35%, Committer 60%, Hello World everyone else; Hall of Fame = top 100 overall. |
+| Rank tiers | `rank_tiers` | Display bands over everyone on the live ladder by percentile, plus a top-N title. Defaults: Legend top 1%, Principal 5%, Architect 15%, Shipper 35%, Committer 60%, Hello World everyone else; Hall of Fame = top 100 overall. |
 | Global settings | `rating_settings` (one row) | Default prize tier, provisional threshold (3 events), months until inactive (18), whether MLH online events count. |
 | History | `config_changes` | Every insert, update and delete on the tables above, with who did it and the old and new rows. |
 
@@ -576,7 +576,7 @@ All public pages are statically generated with ISR (revalidated on publish throu
 | Route | Content |
 |---|---|
 | `/` | Hero search, top 5 ladder, school top 10, hardest 3 events, methodology teaser, claim CTA (exactly the reference) |
-| `/hackers` | Full ladder, paginated (50 per page). Filters: season (all-time or a season), school, country (later). Shows "Provisional" count. |
+| `/hackers` | Full ladder, paginated (50 per page). Filters: season (all-time or a season), school, country (later). Shows how many are on fewer than 3 events. |
 | `/h/[slug]` | Profile: name, rating, percentile, monthly change, rating-history chart, events table (event, date, placement, prize, rating change), frequent teammates, best crew, claim CTA or claimed badge, "Something wrong?" |
 | `/schools` | School ladder, by season |
 | `/s/[slug]` | School page: rating, rank, top hackers, recent wins, rival schools nearby in rank |
@@ -785,6 +785,10 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
   - No email when a profile goes live, since there's no mail service yet; the status page is the notification.
 - 2026-11-02: **Win odds noise is OpenSkill's β (25/6), no longer calibrated.** The hardest-to-win board showed VolHacks IV, Hack@CEWIT 2020 and 2023 at about 1 in 3.2 billion (next worst: 1 in 5,884). Cause: the noise was fitted to who won using *final* ratings, which already contain those wins (89k of 113k people have one event), so the fit collapsed to the grid floor of 1.0 (0.46 without the floor). Any field with one strong veteran (jemsbhai, μ 34.2, 42 events, was at all three) became near-impossible. Experiment (`noise_experiment.py`; current / floor 0.05 / β / fit on pre-event μ): on live data the hardest events became Cal Hacks 12 (1/496), Cal Hacks 13, HackUTD 2025, Cal Hacks 11 and Hack the North 2026, with VolHacks IV at 1/77; the pre-event fit still left the jemsbhai events on top (1/3,684). Simulation event-rating correlation 0.837 / 0.832 / **0.840** / 0.840; odds correlation 0.524 / 0.507 / 0.542 / 0.548. The calibration code is removed.
 - 2026-11-02: **Search was 7–17 s** on the live data (194k rows). The name-prefix test was `starts_with()`, which no index serves, so the whole `or` filter fell back to a full scan; and `f_unaccent()` (not inlinable: it sets `search_path`) ran per row for matching and scoring. Fixed: the unaccented lowercase name is stored as `search_index.key` and indexed, and the prefix test is `key like 'q%'`. Read-only on the live data, the LIKE alone took 7–17 s → 1.3–4.3 s with the disk throttled; on 194k synthetic names in a local test, old 3.3 s → new 0.19 s for the same rows.
+- 2026-11-04: **Everyone is ranked from their first rated event** (owner's call; it took 3). Only 12.7k of 170k rated hackers had a rank, so the core moment ("I'm #4,210") failed for 92.5% of visitors. With everyone in, the top 100 holds only 8 one-event hackers, so the top stays credible.
+  - **Exact positions** (owner's call): score, then the unrounded μ − 3σ, then the most recent event, then the person id. About 125k one-time non-placers have nearly equal scores, and this orders them without sharing ranks.
+  - The rating run stores the position in `ratings.rank` (null when hidden or inactive), so `live_board`, `ladder()` and `hacker_page()` no longer number the whole board with a window function on every view (that would have been ~170k rows per profile).
+  - `provisional` is now only the "based on N events" label. Sitemap and indexing still use `not provisional or placements > 0`, so the crawlable pages don't grow to 170k; school ratings still count only non-provisional hackers.
 - 2026-10-23: Usage warnings (Vercel ISR writes at 75% of Hobby's 200k; Supabase Nano "depleting its Disk IO budget"). Diagnosis:
   - **Vercel:** about 80k crawlable URLs (70k profiles, mostly provisional, and 10k empty school pages) regenerated hourly and after every publish, with output that really changed: live counts in the chrome, ratings during the backfill.
   - **Supabase:** writes, not reads (100% cache hit, 1.6 GB of WAL since 2026-10-02). The sources were the backfill, about 2 full republishes a day, and no-op upserts (124k account rewrites).
@@ -819,7 +823,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 
 - **Rating / score:** displayed number, `1000 + 200(μ − 3σ)`.
 - **μ, σ:** OpenSkill skill estimate and its uncertainty.
-- **Provisional:** fewer than 3 rated events; shown without a rank.
+- **Provisional:** fewer than 3 rated events; ranked, with a "based on N events" label.
 - **Rank tier:** the named band a rating falls in (Hello World … Legend, Hall of Fame for the top 100); admin-editable (§8.7).
 - **Event tier:** an admin's S/A/B/C label on a hackathon; a badge and filter, never a rating multiplier.
 - **Elite hacker:** global top 5% by conservative rating, with at least 3 events.

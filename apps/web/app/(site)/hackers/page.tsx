@@ -11,7 +11,7 @@ import { num, pageParam, pages } from "@/lib/format";
 
 export const metadata: Metadata = {
   title: "The ladder",
-  description: "Every hackathon hacker with three or more rated events, ranked by rating.",
+  description: "Every hackathon hacker with a rated event, ranked by rating.",
   alternates: { canonical: "/hackers" },
 };
 
@@ -19,7 +19,7 @@ export default function HackersPage(props: PageProps<"/hackers">) {
   return (
     <>
       <SectionHead as="h1" title="The ladder">
-        Hackers with three or more rated events in the last 18 months, by rating. Updated every Monday.
+        Every hacker with a rated event in the last 18 months, by rating. Updated every Monday.
       </SectionHead>
       <Suspense fallback={<LoadingWin title="~/ladder" />}>
         <Ladder searchParams={props.searchParams} />
@@ -70,7 +70,7 @@ async function Ladder({ searchParams }: Pick<PageProps<"/hackers">, "searchParam
         title={schoolName ? `~/ladder/${schoolName.toLowerCase()}` : "~/ladder"}
         meta="sorted by rating ↓"
         status={[
-          `${num(total)} ranked · ${num(provisional)} provisional`,
+          `${num(total)} ranked · ${num(provisional)} on fewer than 3 events`,
           <Pager key="p" page={Math.min(page, last)} last={last} href={href} />,
         ]}
       >
@@ -82,13 +82,14 @@ async function Ladder({ searchParams }: Pick<PageProps<"/hackers">, "searchParam
           <Empty>
             {school
               ? `Nobody from ${schoolName ?? "that school"} is on the ladder yet. Hackers add their school after claiming.`
-              : "Nobody has three rated events yet. The ladder fills in as events are crawled and rated."}
+              : "Nobody is rated yet. The ladder fills in as events are crawled and rated."}
           </Empty>
         )}
       </Win>
       <p className="mt-4 max-w-[70ch] text-[14px] text-muted">
-        Fewer than three rated events? You&apos;re provisional: your profile has a rating, but no rank yet. Hackers with no
-        rated event in 18 months leave the live ladder and keep their profile.
+        Everyone is ranked from their first rated event. Under three events, a profile says how many its rating is based
+        on, since one result is a small sample. Hackers with no rated event in 18 months leave the live ladder and keep
+        their profile.
       </p>
     </>
   );

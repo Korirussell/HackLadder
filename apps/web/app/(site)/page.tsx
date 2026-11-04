@@ -67,7 +67,7 @@ export default async function Home() {
       </section>
 
       <section className="mt-[120px]">
-        <SectionHead title="The ladder">Top hackers with three or more rated events. Updated every Monday.</SectionHead>
+        <SectionHead title="The ladder">The top hackers by rating. Updated every Monday.</SectionHead>
         <Win
           title="~/ladder"
           meta="sorted by rating ↓"
@@ -81,7 +81,7 @@ export default async function Home() {
           {top.length ? (
             <LadderTable rows={top} />
           ) : (
-            <Empty>Nobody has three rated events yet. The ladder fills in as events are crawled and rated.</Empty>
+            <Empty>Nobody is rated yet. The ladder fills in as events are crawled and rated.</Empty>
           )}
         </Win>
       </section>

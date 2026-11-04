@@ -89,7 +89,11 @@ def test_crawl_load_rate_publish(conn: psycopg.Connection[Any]) -> None:
 
     summary = run_ratings(conn)
     assert summary is not None
-    assert (summary.events, summary.people, summary.ranked) == (1, 9, 0)  # one event: everyone provisional
+    assert (summary.events, summary.people, summary.ranked) == (
+        1,
+        9,
+        0,
+    )  # its one event is over 18 months old
     assert q("select count(*) from public.ratings") == (9,)
     assert q("select count(*) from public.ratings_next") == (0,)  # swapped in and cleared
     score = dict(

@@ -4,7 +4,7 @@
 -- devpost_user_html() is replaced by a stub that reads from a test table.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(36);
 
 -- ---------------------------------------------------------------- fixtures (fake)
 insert into auth.users (id, email) values
@@ -43,10 +43,11 @@ select pr.id, a.id from public.projects pr join public.accounts a on a.source_id
                     else array['tuser-dee'] end);
 
 -- Rating outputs are pipeline-made; these are invented for the test only.
-insert into public.ratings (person_id, mu, sigma, score, events, placements, grand_prizes, last_event_on, percentile, provisional)
-select id, 30, 2, v.score, 3, 1, 1, current_date - 10, v.pct, v.prov
-from public.people p join (values ('t-ana', 1300, 20.0, false), ('t-ben', 1200, 60.0, false),
-                                  ('t-cy', 1100, 100.0, false), ('t-dee', 1000, null, true)) v (s, score, pct, prov)
+-- Everyone is ranked, provisional or not; the pipeline stores the position (§15 2026-11-04).
+insert into public.ratings (person_id, mu, sigma, score, events, placements, grand_prizes, last_event_on, percentile, provisional, rank)
+select id, 30, 2, v.score, 3, 1, 1, current_date - 10, v.pct, v.prov, v.pos
+from public.people p join (values ('t-ana', 1300, 25.0, false, 1), ('t-ben', 1200, 50.0, false, 2),
+                                  ('t-cy', 1100, 75.0, false, 3), ('t-dee', 1000, 100.0, true, 4)) v (s, score, pct, prov, pos)
   on p.slug = v.s;
 insert into public.rating_history (person_id, hackathon_id, ends_on, score_before, score_after)
 select p.id, h.id, h.ends_on, 1250, 1300 from public.people p, public.hackathons h
@@ -63,8 +64,8 @@ language sql as $$ select html from public.test_bios where username = p_username
 set local role anon;
 
 select results_eq($$select slug, rank::int from public.ladder() order by rank$$,
-  $$values ('t-ana'::text, 1), ('t-ben', 2), ('t-cy', 3)$$,
-  'the ladder lists non-provisional hackers by rating');
+  $$values ('t-ana'::text, 1), ('t-ben', 2), ('t-cy', 3), ('t-dee', 4)$$,
+  'the ladder lists everyone at their stored position, provisional hackers included');
 select is((select best_event_title from public.ladder() where slug = 't-ana'), 'Test Big Hack',
   'the ladder shows each hacker''s best win');
 select is((select month_change from public.ladder() where slug = 't-ana'), 50,
@@ -72,8 +73,10 @@ select is((select month_change from public.ladder() where slug = 't-ana'), 50,
 select is((select tier from public.ladder() where slug = 't-ana'), 'Hall of Fame',
   'the top 100 get the Hall of Fame tier');
 select is((select count(*)::int from public.ladder(50, 0, 'test-u')), 1, 'the ladder filters by school');
-select is(public.provisional_count()::int, 1, 'provisional hackers are counted, not ranked');
+select is(public.provisional_count()::int, 1, 'provisional hackers are still counted (it is a label now)');
 select is((public.hacker_page('t-ana')->>'rank')::int, 1, 'a profile has its rank');
+select is((public.hacker_page('t-dee')->>'rank')::int, 4, 'a provisional hacker is ranked too');
+select is((public.hacker_page('t-dee')->>'board_size')::int, 4, 'the board size comes from the stored positions');
 select is(jsonb_array_length(public.hacker_page('t-ana')->'events'), 2,
   'a profile lists public events only (the high-school event is left out)');
 select is(public.hacker_page('t-ana')->'teammates'->0->>'name', 'Test Ben', 'a profile lists frequent teammates');

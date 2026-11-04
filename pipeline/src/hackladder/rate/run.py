@@ -27,6 +27,26 @@ MIN_SCHOOL_MEMBERS = 5
 SCHOOL_TOP_N = 10
 
 
+def board_order(rep: Any, hidden: set[Any], *, today: date, inactive_after_months: int) -> list[Any]:
+    """Everyone on the live board, best first (§15 2026-11-04): every hacker with a rated event who
+    isn't hidden and competed within the inactivity window. Positions are exact: score, then the
+    unrounded conservative rating, then the most recent event, then the person id, so equal
+    scores never share a rank."""
+    year, month = divmod(today.year * 12 + today.month - 1 - inactive_after_months, 12)
+    cutoff = date(year, month + 1, min(today.day, 28))
+
+    def key(p: Any) -> tuple[Any, ...]:
+        r, s = rep.ratings[p], rep.stats[p]
+        last = s.last_event_on.toordinal() if s.last_event_on else 0
+        return (-display(r.mu, r.sigma), -(r.mu - 3 * r.sigma), -last, str(p))
+
+    ladder = [
+        p for p, s in rep.stats.items()
+        if s.events >= 1 and p not in hidden and (s.last_event_on is None or s.last_event_on >= cutoff)
+    ]  # fmt: skip
+    return sorted(ladder, key=key)
+
+
 @dataclass(frozen=True, slots=True)
 class RateSummary:
     events: int
@@ -172,14 +192,21 @@ def run_ratings(conn: Connection, *, if_changed: bool = False) -> RateSummary | 
 
     min_events = config.settings.provisional_min_events
     scores = {p: display(r.mu, r.sigma) for p, r in rep.ratings.items()}
-    ranked = sorted((p for p in scores if rep.stats[p].events >= min_events), key=lambda p: -scores[p])
-    top_percent = {p: 100 * (i + 1) / len(ranked) for i, p in enumerate(ranked)}
+    # Everyone is ranked from their first event; "provisional" (under min_events) is now only a
+    # label, and school ratings still count only non-provisional hackers (§8.4).
+    hidden = {r[0] for r in conn.execute("select id from public.people where hidden").fetchall()}
+    ladder = board_order(
+        rep, hidden, today=date.today(), inactive_after_months=config.settings.inactive_after_months
+    )
+    rank = {p: i + 1 for i, p in enumerate(ladder)}
+    top_percent = {p: 100 * n / len(ladder) for p, n in rank.items()}
+    ranked = [p for p in ladder if rep.stats[p].events >= min_events]  # school boards (§8.4)
     with conn.cursor() as cur:
         cur.executemany(
-            "insert into public.ratings_next values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "insert into public.ratings_next values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             [
                 (p, r.mu, r.sigma, scores[p], s.events, s.placements, s.grand_prizes, s.last_event_on,
-                 top_percent.get(p), p not in top_percent)
+                 top_percent.get(p), s.events < min_events, rank.get(p))
                 for p, r in rep.ratings.items()
                 for s in (rep.stats[p],)
             ],
@@ -223,7 +250,7 @@ def run_ratings(conn: Connection, *, if_changed: bool = False) -> RateSummary | 
     conn.commit()
     conn.execute("refresh materialized view concurrently public.search_index")
     conn.commit()
-    return RateSummary(len(rep.snapshots), len(rep.ratings), len(ranked), len(series_rows), len(board), noise)
+    return RateSummary(len(rep.snapshots), len(rep.ratings), len(ladder), len(series_rows), len(board), noise)
 
 
 def _school_rows(

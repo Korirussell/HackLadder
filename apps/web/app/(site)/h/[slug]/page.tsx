@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps<"/h/[slug]">): Prom
   if (!h) return { title: "Not found", robots: { index: false } };
   const r = h.rating;
   const line = r
-    ? `${h.rank ? `#${num(h.rank)} on HackLadder` : "Provisional"} · rating ${num(r.score)} · ${plural(r.events, "rated event")}`
+    ? `${h.rank ? `#${num(h.rank)} on HackLadder` : "Inactive"} · rating ${num(r.score)} · ${plural(r.events, "rated event")}`
     : "On HackLadder";
   return {
     title: h.display_name,
@@ -68,8 +68,10 @@ async function Profile({ params }: Pick<PageProps<"/h/[slug]">, "params">) {
                 #{num(h.rank)} of {num(h.board_size)}
               </Chip>
             ) : (
-              <Chip>{r ? "Provisional" : "Unrated"}</Chip>
+              <Chip>{r ? "Inactive" : "Unrated"}</Chip>
             )}
+            {/* Everyone is ranked from their first event; a small sample is labelled, not hidden. */}
+            {r?.provisional && <Chip>based on {plural(r.events, "event")}</Chip>}
             {h.tier && <Chip>{h.tier}</Chip>}
             {topPercent(r?.percentile) && <Chip>{topPercent(r?.percentile)}</Chip>}
             {h.school && (

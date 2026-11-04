@@ -1374,6 +1374,7 @@ export type Database = {
           person_id: number
           placements: number
           provisional: boolean
+          rank: number | null
           score: number
           sigma: number
         }
@@ -1386,6 +1387,7 @@ export type Database = {
           person_id: number
           placements: number
           provisional: boolean
+          rank?: number | null
           score: number
           sigma: number
         }
@@ -1398,6 +1400,7 @@ export type Database = {
           person_id?: number
           placements?: number
           provisional?: boolean
+          rank?: number | null
           score?: number
           sigma?: number
         }
@@ -1426,6 +1429,7 @@ export type Database = {
           person_id: number
           placements: number
           provisional: boolean
+          rank: number | null
           score: number
           sigma: number
         }
@@ -1438,6 +1442,7 @@ export type Database = {
           person_id: number
           placements: number
           provisional: boolean
+          rank?: number | null
           score: number
           sigma: number
         }
@@ -1450,6 +1455,7 @@ export type Database = {
           person_id?: number
           placements?: number
           provisional?: boolean
+          rank?: number | null
           score?: number
           sigma?: number
         }

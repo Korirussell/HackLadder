@@ -2,14 +2,13 @@
 
 Each entrant is judged by their final (hindsight) conservative rating mu - 1 sigma, so
 first-timers count as unproven. win_odds is the exact 1-in-N chance that a team at the
-global 90th percentile takes 1st against that field, with per-event noise calibrated on who
-actually won. Event rating = 70% z(log1p(elite)) + 30% z(log(win_odds)).
+global 90th percentile takes 1st against that field, with each team's performance noise set to
+OpenSkill's beta (§15 2026-11-02). Event rating = 70% z(log1p(elite)) + 30% z(log(win_odds)).
 """
 
 from __future__ import annotations
 
 import math
-import random
 import re
 import statistics as st
 from collections import defaultdict
@@ -28,7 +27,6 @@ REF_PCTL = 0.90
 UNPROVEN_K = 1.0
 MIN_TEAMS = 8
 MIN_EVENTS_FOR_ELITE = 3
-CALIBRATION_SAMPLE = 400
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,31 +98,13 @@ def p_ref_wins(ref_strength: float, ref_sd: float, strengths: Sequence[float], s
     return float(np.trapezoid(dens * np.exp(log_beat_all), x))
 
 
-def p_team_first(j: int, strengths: Sequence[float], sd: float, grid: int = 801) -> float:
-    m = strengths[j]
-    x = np.linspace(m - 6 * sd, m + 6 * sd, grid)
-    others = np.delete(np.asarray(strengths), j)
-    logc = norm.logcdf((x[:, None] - others[None, :]) / sd).sum(axis=1)
-    return float(np.trapezoid(norm.pdf(x, m, sd) * np.exp(logc), x))
-
-
-def calibrate_noise(fields: Sequence[tuple[list[float], int]]) -> float:
-    """The per-event performance noise that best predicts who actually took 1st."""
-    best_sd, best_ll = 1.0, -math.inf
-    for sd in np.geomspace(1, 40, 25):
-        ll = sum(math.log(max(p_team_first(j, f, float(sd)), 1e-12)) for f, j in fields)
-        if ll > best_ll:
-            best_sd, best_ll = float(sd), ll
-    return best_sd
-
-
 def zscores(vals: Sequence[float]) -> list[float]:
     m, s = st.mean(vals), st.pstdev(vals) or 1
     return [(v - m) / s for v in vals]
 
 
 def analyze(rep: Replay, series_of: Mapping[Any, str]) -> tuple[list[EventRow], list[SeriesRow], float]:
-    """Rank events and series. Returns (events by rating, series by rating, calibrated noise)."""
+    """Rank events and series. Returns (events by rating, series by rating, the noise used)."""
     final = {u: r.mu for u, r in rep.ratings.items()}
     events_of: dict[Hashable, int] = defaultdict(int)
     for snap in rep.snapshots:
@@ -147,17 +127,11 @@ def analyze(rep: Replay, series_of: Mapping[Any, str]) -> tuple[list[EventRow], 
     def team_strength(members: Sequence[Hashable], anonymous: int) -> float:
         return float(st.mean([*(eff[u] for u in members), *([unknown] * anonymous)]))
 
-    fields = []
-    for snap in rep.snapshots:
-        if len(snap.teams) < MIN_TEAMS:
-            continue
-        strengths = [team_strength(t.members, t.anonymous) for t in snap.teams]
-        firsts = [i for i, t in enumerate(snap.teams) if t.rank == 1]
-        if len(firsts) == 1:
-            fields.append((strengths, firsts[0]))
-    if len(fields) > CALIBRATION_SAMPLE:  # plenty to fit one number; keeps the runtime short
-        fields = random.Random(0).sample(fields, CALIBRATION_SAMPLE)
-    noise = calibrate_noise(fields) if fields else PlackettLuce().beta
+    # Each team's performance varies by OpenSkill's beta, the noise the ratings themselves assume.
+    # It used to be fitted to who won, judged by final ratings; but those ratings already contain
+    # the wins (most people have one event), so the fit collapsed toward zero and one veteran in a
+    # field made it "1 in 3 billion" (§15 2026-11-02).
+    noise = PlackettLuce().beta
 
     raw: list[dict[str, Any]] = []
     for snap in rep.snapshots:

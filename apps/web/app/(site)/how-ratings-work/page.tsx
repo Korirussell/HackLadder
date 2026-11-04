@@ -109,8 +109,8 @@ export default async function Method() {
         <MathNote title="Event difficulty">
           <p>
             Every entrant is judged by their final rating, conservatively (μ − 1σ), so first-timers count as unproven rather than as
-            wildcards. Win odds are computed by numerical integration over the field, with per-event noise calibrated on who
-            actually won. Event rating = 70% z(log(1 + elite)) + 30% z(log win odds). A series&apos; rating is the mean of its
+            wildcards. Win odds are computed by numerical integration over the field, with each team&apos;s performance varying
+            by OpenSkill&apos;s β (25/6), the same noise the ratings assume. Event rating = 70% z(log(1 + elite)) + 30% z(log win odds). A series&apos; rating is the mean of its
             editions&apos; z-scores, shrunk by n/(n + 1).
           </p>
           <p>

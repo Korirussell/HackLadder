@@ -2,16 +2,19 @@
 
 import { useEffect, useState } from "react";
 
+import { plural } from "@/lib/format";
 import { BOOT_KEY } from "@/lib/theme";
 
 /**
  * The one orchestrated moment (§4.5): about a second of "loading..." over the first page of a
  * session. HEAD_SCRIPT adds html.booting before paint, so the page renders underneath and this
  * only covers it; without that class (seen this session, reduced motion) it never shows.
+ * The counts are fetched here rather than rendered into every page (§15 2026-10-25).
  */
-export function BootScreen({ hackers, hackathons }: { hackers: string; hackathons: string }) {
+export function BootScreen() {
   const [pct, setPct] = useState(0);
   const [done, setDone] = useState(false);
+  const [counts, setCounts] = useState<{ hackers: string; hackathons: string } | null>(null);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -21,6 +24,12 @@ export function BootScreen({ hackers, hackathons }: { hackers: string; hackathon
     } catch {
       // Without storage it may show again next page; that's acceptable.
     }
+    fetch("/api/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: { hackers: number; hackathons: number } | null) => {
+        if (s) setCounts({ hackers: plural(s.hackers, "hacker"), hackathons: plural(s.hackathons, "hackathon") });
+      })
+      .catch(() => {});
     let p = 0;
     const timer = setInterval(() => {
       p = Math.min(100, p + 3 + Math.floor(Math.random() * 7));
@@ -48,8 +57,8 @@ export function BootScreen({ hackers, hackathons }: { hackers: string; hackathon
           <i className="block h-full bg-accent" style={{ width: `${pct}%` }} />
         </div>
         <div className="mt-2.5 flex justify-between text-muted">
-          <span>{hackers}</span>
-          <span>{hackathons}</span>
+          <span>{counts?.hackers ?? "\u00a0"}</span>
+          <span>{counts?.hackathons}</span>
         </div>
       </div>
     </div>

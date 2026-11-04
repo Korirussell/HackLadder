@@ -778,6 +778,9 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
   - add-hacker skips its own crawl whenever another pipeline run (`crawl-events`, `crawl-weekly`, `rate-nightly`, or a newer add-hacker run) is active or pending, or the check fails, because GitHub cancels pending runs across the shared `pipeline-db` group and a request must never cancel a scheduled run. Those runs crawl requested events first and all run `hl add finish`.
   - A request still `crawling` 48 hours after it was made moves its queued events to backlog in `hl add finish`, so an event whose gallery always fails can't hold it (or the front of every crawl) forever. A request left `looking_up` for 30 minutes is looked up again, and hidden people are never revealed as `live`.
   - No email when a profile goes live, since there's no mail service yet; the status page is the notification.
+- 2026-10-25: Vercel Hobby went over its free resources (515k of 200k ISR writes in the rolling 30 days, plus Fast Origin Transfer and Fluid CPU). Hobby pauses projects that go over, so the owner moved Vercel to Pro ($20/mo). Supabase stays on Free for now.
+  - **Cause:** the boot screen in the chrome rendered the exact hacker and hackathon counts. The backfill changes those on every publish, so every page's output differed, and Vercel bills a write only for output that differs. The counts now come from `/api/stats`, fetched by the boot screen. Rule: nothing in the chrome may change on every publish.
+  - **Pipeline:** sessions set `statement_timeout = 15min`. On 2026-10-24, with Supabase's Disk IO budget spent, a one-row upsert and the rating fingerprint each passed the default 2 minutes and failed that day's crawl and publish.
 - 2026-10-23: Usage warnings (Vercel ISR writes at 75% of Hobby's 200k; Supabase Nano "depleting its Disk IO budget"). Diagnosis:
   - **Vercel:** about 80k crawlable URLs (70k profiles, mostly provisional, and 10k empty school pages) regenerated hourly and after every publish, with output that really changed: live counts in the chrome, ratings during the backfill.
   - **Supabase:** writes, not reads (100% cache hit, 1.6 GB of WAL since 2026-10-02). The sources were the backfill, about 2 full republishes a day, and no-op upserts (124k account rewrites).
@@ -791,7 +794,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
   - The `*_next` tables are UNLOGGED.
   - Loaders skip unchanged accounts, projects, prizes, teams and hackathons.
 
-  Supabase moves to Pro with Small compute (owner's call). Incremental rating recompute was rejected: the full replay is what makes ratings reproducible.
+  Incremental rating recompute was rejected: the full replay is what makes ratings reproducible.
 - 2026-10-15: The domain is www.hackladder.com (apex redirects to www). Hosting: Vercel for `apps/web` (root directory `apps/web`), Supabase for data and auth, GitHub Actions for the scheduled pipeline, and a laptop for the multi-day backfill. Production env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL=https://www.hackladder.com, GITHUB_DISPATCH_TOKEN, and optionally REVALIDATE_SECRET (also a GitHub Actions secret).
 - 2026-10-14: The web app is a standalone pnpm project in `apps/web` (no root workspace yet). There's one JS package; add a workspace when a second one appears.
 

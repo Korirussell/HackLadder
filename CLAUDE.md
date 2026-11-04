@@ -494,7 +494,7 @@ The prototype in `pipeline/prototype/` is validated. Port its logic into `src/ha
 - A person on two projects at one event keeps only their best-placed one (`dedupe_people`).
 - **Field-size correction:** Plackett-Luce divides every update by c ≈ √(teams), which made a win at an 11-team event worth 3× one at a 150-team event. Each event's change in μ, and its shrink in σ, are scaled by `(teams / 50)^0.75` (`field_scale`, capped at 6), so a bigger field is worth more (§15).
 - **Extra prizes:** each placing prize after a team's best one adds a bonus (tier 1/2: 0.5, tier 3: 0.35, tier 4: 0.25, capped at 1; `prize_bonus`). It breaks ties within the best prize's tier and multiplies the team's μ gain by `1 + bonus × min(1, field_scale)` (§15).
-- Display score: `1000 + 40 × (μ − 3σ)`, so new hackers start at about 1000 and a single lucky win can't top the board.
+- Display score: `1000 + 200 × (μ − 3σ)`, so new hackers start at about 1000 and a single lucky win can't top the board.
 - Leaderboard eligibility: at least 3 rated events (the prototype used 2; **use 3**). Below that, the profile is labeled "Provisional".
 
 ### 8.2 Event ranking (`prototype/analyze_events.py`)
@@ -781,6 +781,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 - 2026-10-25: Vercel Hobby went over its free resources (515k of 200k ISR writes in the rolling 30 days, plus Fast Origin Transfer and Fluid CPU). Hobby pauses projects that go over, so the owner moved Vercel to Pro ($20/mo). Supabase stays on Free for now.
   - **Cause:** the boot screen in the chrome rendered the exact hacker and hackathon counts. The backfill changes those on every publish, so every page's output differed, and Vercel bills a write only for output that differs. The counts now come from `/api/stats`, fetched by the boot screen. Rule: nothing in the chrome may change on every publish.
   - **Pipeline:** sessions set `statement_timeout = 15min`. On 2026-10-24, with Supabase's Disk IO budget spent, a one-row upsert and the rating fingerprint each passed the default 2 minutes and failed that day's crawl and publish.
+- 2026-10-26: Display scale changed from 40 to 200 points per unit of μ (`DISPLAY_SCALE`). At 40, the board spanned 968–1,119, the #1 sat 119 points above a new account, and a placement moved a score about 4 points: it read as if nothing moved. It's a positive linear change, so every order and rank is the same (the simulation still passes). σ is still stuck near 8.34 (known issue, 2026-10-20), so μ − 3σ is effectively μ − 25. School search ranks names with a leading "The" as exact matches (The University of Alabama was third for "university of alabama").
 - 2026-10-23: Usage warnings (Vercel ISR writes at 75% of Hobby's 200k; Supabase Nano "depleting its Disk IO budget"). Diagnosis:
   - **Vercel:** about 80k crawlable URLs (70k profiles, mostly provisional, and 10k empty school pages) regenerated hourly and after every publish, with output that really changed: live counts in the chrome, ratings during the backfill.
   - **Supabase:** writes, not reads (100% cache hit, 1.6 GB of WAL since 2026-10-02). The sources were the backfill, about 2 full republishes a day, and no-op upserts (124k account rewrites).
@@ -813,7 +814,7 @@ Append-only. Format: `YYYY-MM-DD: decision. Why.`
 
 ## 17. Glossary
 
-- **Rating / score:** displayed number, `1000 + 40(μ − 3σ)`.
+- **Rating / score:** displayed number, `1000 + 200(μ − 3σ)`.
 - **μ, σ:** OpenSkill skill estimate and its uncertainty.
 - **Provisional:** fewer than 3 rated events; shown without a rank.
 - **Rank tier:** the named band a rating falls in (Hello World … Legend, Hall of Fame for the top 100); admin-editable (§8.7).

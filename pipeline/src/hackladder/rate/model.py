@@ -33,6 +33,11 @@ MIN_SIGMA = 0.5  # a scaled update can't make anyone (near) certain
 EXTRA_PRIZE_WEIGHT = {1: 0.5, 2: 0.5, 3: 0.35, 4: 0.25}
 MAX_PRIZE_BONUS = 1.0
 
+# The public score's scale (§8.1, §15 2026-10-26). 200 points per unit of mu: at 40 the whole board
+# fit in 968-1119 and a placement moved a score ~4 points. Positive and linear, so the order is the same.
+DISPLAY_BASE = 1000
+DISPLAY_SCALE = 200
+
 PersonId = Hashable
 
 
@@ -98,7 +103,7 @@ class Replay:
 
 def display(mu: float, sigma: float) -> int:
     """The public score: conservative skill on a familiar scale, new hacker ~ 1000 (§8.1)."""
-    return round(1000 + 40 * (mu - 3 * sigma))
+    return round(DISPLAY_BASE + DISPLAY_SCALE * (mu - 3 * sigma))
 
 
 def field_scale(teams: int) -> float:

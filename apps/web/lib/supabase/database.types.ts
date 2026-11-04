@@ -2341,6 +2341,7 @@ export type Database = {
       }
       search_index: {
         Row: {
+          key: string | null
           kind: string | null
           name: string | null
           rank_score: number | null
